@@ -581,7 +581,9 @@ function actualizarResumenCal() {
 }
 document.getElementById('btnCalLimpiar').onclick = () => { franjasSeleccionadas = {}; document.querySelectorAll('.cal-celda').forEach(c => c.classList.remove('sel')); actualizarResumenCal(); };
 document.getElementById('btnCalTodoElDia').onclick = () => {
-    [1, 2, 3, 4, 5].forEach(dia => { franjasSeleccionadas[dia] = { inicio: HORA_INICIO + ':00', fin: HORA_FIN + ':00' }; });
+    const horaIni = String(HORA_INICIO).padStart(2, '0') + ':00';
+    const horaFin = String(HORA_FIN).padStart(2, '0') + ':00';
+    [1, 2, 3, 4, 5].forEach(dia => { franjasSeleccionadas[dia] = { inicio: horaIni, fin: horaFin }; });
     document.querySelectorAll('.cal-celda').forEach(c => { if ([1,2,3,4,5].includes(parseInt(c.dataset.dia))) c.classList.add('sel'); });
     actualizarResumenCal();
 };
@@ -1074,3 +1076,4 @@ function cargarAnalitica() {
 </script>
 </body>
 </html>
+
