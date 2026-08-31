@@ -101,6 +101,7 @@
     .pz-tipo-mensajes { background: #8e44ad; }
     .pz-tipo-fotos { background: #2980b9; }
     .pz-tipo-zocalo { background: #c0392b; }
+    .pz-tipo-imagen { background: #7f8c8d; }
     .pizarra-nota { background: #fdf2d5; border: 1px solid var(--dorado); padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
 
     /* ---- Analítica ---- */
@@ -186,6 +187,15 @@
             <option value="zocalo">🎞️ Noticia Zócalo (Abajo)</option>
             <option value="evento">⚠️ MENSAJE IMPORTANTE (Bloqueo)</option>
         </select>
+
+        <div id="destino-bloques-wrap" style="display:none;">
+            <label>📍 ¿En qué área mostrarlo? (opcional)</label>
+            <div class="cal-nota">Si no marcás ninguna, se muestra en TODAS las áreas de ese tipo dentro de la sede elegida.</div>
+            <div id="destino-bloques-lista" class="sedes-container"></div>
+        </div>
+        <p id="destino-bloques-aviso" style="display:none; color:#b9770e; font-size:0.85rem; background:#fdf2d5; padding:10px 14px; border-radius:8px;">
+            Elegiste más de una sede: el contenido se va a mostrar en todas las áreas de ese tipo en cada una. Para elegir un área puntual, publicá de a una sede por vez.
+        </p>
 
         <textarea id="contenido" placeholder="Escribe el mensaje o pega el link aquí..." rows="4"></textarea>
 
@@ -290,16 +300,20 @@
 
         <div class="pizarra-nota">
             Arrastrá los bloques para moverlos. Usá la esquina 🟨 inferior-derecha para cambiar su tamaño.
-            Los bloques ocultos en la pestaña <b>Diseño</b> no aparecen acá.
+            Podés agregar todos los bloques que quieras (repetidos incluso) para dividir la pantalla en tantas partes como necesites.
+            En los bloques de <b>Imagen</b> y <b>Logo</b>, hacé doble clic para poner o cambiar la URL de esa imagen.
+            Los tipos ocultos en la pestaña <b>Diseño</b> no aparecen acá.
         </div>
 
         <div class="pizarra-toolbar">
             <button data-add="logo">➕ Logo</button>
+            <button data-add="imagen">➕ Imagen (otro logo, cartel, QR...)</button>
             <button data-add="fecha">➕ Fecha</button>
             <button data-add="reloj">➕ Reloj</button>
             <button data-add="mensajes">➕ Mensajes</button>
             <button data-add="fotos">➕ Fotos/Video</button>
             <button data-add="zocalo">➕ Zócalo</button>
+            <button id="btnRenombrarBloque" style="background:#eaf2fb; color:#2980b9;">✏️ Nombrar seleccionado</button>
             <button id="btnQuitarBloque" style="background:#fde3e3; color:#c0392b;">🗑️ Quitar seleccionado</button>
             <button id="btnResetPizarra" style="background:#eee;">↺ Restaurar diseño clásico</button>
         </div>
@@ -457,6 +471,7 @@ function pintarSedesCheckboxes(sedes) {
         bloque.innerHTML = `<label class="sede-option"><input type="checkbox" class="sede-check" value="${s.id}"> ${s.nombre}</label>
             <div class="sede-link-row"><button type="button">🔗 Copiar enlace</button></div>`;
         bloque.querySelector('.sede-link-row button').onclick = function() { copiarLink(s.id, this); };
+        bloque.querySelector('.sede-check').addEventListener('change', actualizarDestinoBloques);
         cont.insertBefore(bloque, btnNueva);
     });
 
@@ -465,6 +480,7 @@ function pintarSedesCheckboxes(sedes) {
     histSel.innerHTML = sedes.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
     if (sedes.some(s => s.id === valPrevio)) histSel.value = valPrevio;
     cargarHistorial();
+    actualizarDestinoBloques();
 }
 
 function pintarVistaEnVivo(sedes) {
@@ -577,15 +593,57 @@ document.getElementById('tipo').onchange = function() {
     document.getElementById('contenido').placeholder = (this.value === 'video-yt')
         ? "Pega el link de YT aquí (ej: https://www.youtube.com/watch?v=...)"
         : "Escribe el mensaje o pega el link aquí...";
+    actualizarDestinoBloques();
 };
+
+// A qué "tipo de bloque" de la pizarra corresponde cada tipo de publicación
+const TIPO_A_BLOQUE = { texto: 'mensajes', foto: 'fotos', 'foto-completa': 'fotos', 'video-yt': 'fotos', zocalo: 'zocalo', evento: null };
+
+const cacheLayouts = {}; // { sedeId: layout } para no releer Firebase todo el tiempo
+let destinoSeleccionado = [];
+
+function actualizarDestinoBloques() {
+    const sedesElegidas = Array.from(document.querySelectorAll('.sede-check:checked')).map(cb => cb.value);
+    const wrap = document.getElementById('destino-bloques-wrap');
+    const aviso = document.getElementById('destino-bloques-aviso');
+    const tipoBloque = TIPO_A_BLOQUE[document.getElementById('tipo').value];
+
+    if (!tipoBloque || sedesElegidas.length === 0) { wrap.style.display = 'none'; aviso.style.display = 'none'; destinoSeleccionado = []; return; }
+    if (sedesElegidas.length > 1) { wrap.style.display = 'none'; aviso.style.display = 'block'; destinoSeleccionado = []; return; }
+
+    aviso.style.display = 'none';
+    const sede = sedesElegidas[0];
+
+    const pintar = (layout) => {
+        const bloques = (layout.blocks || []).filter(b => b.tipo === tipoBloque);
+        const lista = document.getElementById('destino-bloques-lista');
+        if (!bloques.length) { wrap.style.display = 'none'; destinoSeleccionado = []; return; }
+        wrap.style.display = 'block';
+        lista.innerHTML = bloques.map((b, i) => `
+            <label class="sede-option"><input type="checkbox" class="destino-check" value="${b.id}" ${destinoSeleccionado.includes(b.id) ? 'checked' : ''}> ${b.nombre || (NOMBRES[b.tipo] + ' #' + (i + 1))}</label>
+        `).join('');
+        lista.querySelectorAll('.destino-check').forEach(cb => cb.addEventListener('change', () => {
+            destinoSeleccionado = Array.from(document.querySelectorAll('.destino-check:checked')).map(c => c.value);
+        }));
+    };
+
+    if (cacheLayouts[sede]) { pintar(cacheLayouts[sede]); return; }
+    db.ref('organizaciones/' + orgId + '/sedes/' + sede + '/config/layout').once('value').then(snap => {
+        const layout = snap.val() || CONFIG_DEFAULT.layout;
+        cacheLayouts[sede] = layout;
+        pintar(layout);
+    });
+}
 
 function resetFormulario() {
     document.getElementById('contenido').value = "";
     document.getElementById('fecha-inicio').value = "";
     document.getElementById('fecha-fin').value = "";
     franjasSeleccionadas = {};
+    destinoSeleccionado = [];
     document.querySelectorAll('.cal-celda').forEach(c => c.classList.remove('sel'));
     actualizarResumenCal();
+    actualizarDestinoBloques();
     btnSubir.innerText = "🚀 PUBLICAR AHORA";
     btnSubir.classList.remove('modo-edit');
 }
@@ -601,6 +659,7 @@ btnSubir.onclick = function() {
     const fechaInicioVal = document.getElementById('fecha-inicio').value || null;
     const fechaFinVal = document.getElementById('fecha-fin').value || null;
     const franjas = Object.keys(franjasSeleccionadas).length ? franjasSeleccionadas : null;
+    const destino = destinoSeleccionado.length ? destinoSeleccionado.slice() : null;
 
     sedes.forEach(sede => {
         const refSede = db.ref('organizaciones/' + orgId + '/sedes/' + sede);
@@ -609,14 +668,17 @@ btnSubir.onclick = function() {
             if (!data.texto) data.texto = [];
             if (!data.fotos) data.fotos = [];
             if (!data.eventos) data.eventos = [];
+            if (!Array.isArray(data.zocalo)) data.zocalo = data.zocalo ? [data.zocalo] : [];
 
-            const base = { fechaInicio: fechaInicioVal, fechaFin: fechaFinVal, franjas };
+            // El destino elegido solo aplica de verdad cuando se publica en UNA sola sede a la vez
+            const destinoParaEstaSede = (sedes.length === 1) ? destino : null;
+            const base = { fechaInicio: fechaInicioVal, fechaFin: fechaFinVal, franjas, destino: destinoParaEstaSede };
 
             if (tipo === 'texto') data.texto.push(Object.assign({ msg: cont }, base));
             else if (tipo === 'foto') data.fotos.push(Object.assign({ url: cont, formato: 'normal' }, base));
             else if (tipo === 'foto-completa') data.fotos.push(Object.assign({ url: cont, formato: 'completa' }, base));
             else if (tipo === 'video-yt') data.fotos.push(Object.assign({ url: cont, formato: 'video' }, base));
-            else if (tipo === 'zocalo') data.zocalo = Object.assign({ msg: cont }, base);
+            else if (tipo === 'zocalo') data.zocalo.push(Object.assign({ msg: cont }, base));
             else if (tipo === 'evento') data.eventos.push(Object.assign({ msg: cont }, base));
 
             return refSede.set(data);
@@ -636,14 +698,18 @@ function cargarHistorial() {
         h.innerHTML = "";
         if (!data) { h.innerHTML = "Sede vacía."; return; }
 
-        (data.texto || []).forEach((t, i) => h.innerHTML += itemHTML(`📝 ${(t.msg||'').substring(0,25)}...`, 'texto', i));
+        const etiquetaDestino = (item) => (item.destino && item.destino.length) ? ` <span style="color:#8e44ad; font-weight:normal;">(área puntual)</span>` : '';
+
+        (data.texto || []).forEach((t, i) => h.innerHTML += itemHTML(`📝 ${(t.msg||'').substring(0,25)}...${etiquetaDestino(t)}`, 'texto', i));
         (data.fotos || []).forEach((f, i) => {
             const icono = f.formato === 'video' ? '🎬' : '🖼️';
             const nombre = f.formato === 'video' ? 'Video YouTube' : (f.formato === 'completa' ? 'Foto Completa' : 'Foto Normal');
-            h.innerHTML += itemHTML(`${icono} ${nombre} ${i+1}`, 'fotos', i);
+            h.innerHTML += itemHTML(`${icono} ${nombre} ${i+1}${etiquetaDestino(f)}`, 'fotos', i);
         });
         (data.eventos || []).forEach((e, i) => h.innerHTML += itemHTML(`⚠️ BLOQUEO: ${(e.msg||'').substring(0,15)}...`, 'eventos', i));
-        if (data.zocalo && data.zocalo.msg) h.innerHTML += itemHTML(`🎞️ Zócalo: ${data.zocalo.msg.substring(0,20)}...`, 'zocalo', 0);
+        (Array.isArray(data.zocalo) ? data.zocalo : (data.zocalo ? [data.zocalo] : [])).forEach((z, i) => {
+            if (z && z.msg) h.innerHTML += itemHTML(`🎞️ Zócalo: ${z.msg.substring(0,20)}...${etiquetaDestino(z)}`, 'zocalo', i);
+        });
     });
 }
 
@@ -658,7 +724,9 @@ window.editar = function(cat, i) {
     const sede = document.getElementById('ver-historial-sede').value;
     db.ref('organizaciones/' + orgId + '/sedes/' + sede).once('value').then(snap => {
         const data = snap.val();
-        const item = (cat === 'zocalo') ? data.zocalo : data[cat][i];
+        const zocaloArr = Array.isArray(data.zocalo) ? data.zocalo : (data.zocalo ? [data.zocalo] : []);
+        const item = (cat === 'zocalo') ? zocaloArr[i] : data[cat][i];
+        if (!item) return;
 
         document.getElementById('contenido').value = (cat === 'fotos') ? item.url : item.msg;
         const sel = document.getElementById('tipo');
@@ -677,6 +745,9 @@ window.editar = function(cat, i) {
         actualizarResumenCal();
 
         document.querySelectorAll('.sede-check').forEach(cb => cb.checked = (cb.value === sede));
+        destinoSeleccionado = item.destino ? item.destino.slice() : [];
+        actualizarDestinoBloques();
+
         btnSubir.innerText = "💾 GUARDAR CAMBIOS";
         btnSubir.classList.add('modo-edit');
         borrar(cat, i);
@@ -691,8 +762,13 @@ window.borrar = function(cat, i) {
     ref.once('value').then(snap => {
         let data = snap.val();
         if (!data) return;
-        if (cat === 'zocalo') data.zocalo = "";
-        else if (data[cat]) data[cat].splice(i, 1);
+        if (cat === 'zocalo') {
+            const arr = Array.isArray(data.zocalo) ? data.zocalo : (data.zocalo ? [data.zocalo] : []);
+            arr.splice(i, 1);
+            data.zocalo = arr;
+        } else if (data[cat]) {
+            data[cat].splice(i, 1);
+        }
         ref.set(data);
     });
 };
@@ -720,7 +796,7 @@ const CONFIG_DEFAULT = {
         ]
     }
 };
-const NOMBRES = { logo: "LOGO", fecha: "FECHA", reloj: "RELOJ", mensajes: "MENSAJES", fotos: "FOTOS / VIDEO", zocalo: "ZÓCALO" };
+const NOMBRES = { logo: "LOGO", imagen: "IMAGEN", fecha: "FECHA", reloj: "RELOJ", mensajes: "MENSAJES", fotos: "FOTOS / VIDEO", zocalo: "ZÓCALO" };
 
 let configEnEdicion = null;
 let bloqueSeleccionado = null;
@@ -830,8 +906,9 @@ function renderCanvas() {
     configEnEdicion.layout.blocks.forEach(b => {
         const el = document.createElement('div');
         el.className = 'pz-bloque pz-tipo-' + b.tipo + (bloqueSeleccionado === b.id ? ' seleccionado' : '');
-        el.innerText = NOMBRES[b.tipo] || b.tipo;
+        el.innerText = b.nombre || NOMBRES[b.tipo] || b.tipo;
         el.dataset.id = b.id;
+        if (b.url) el.title = b.url;
         posicionarPz(el, b, cols, rows);
 
         const handle = document.createElement('div');
@@ -840,10 +917,19 @@ function renderCanvas() {
 
         el.addEventListener('mousedown', ev => iniciarArrastre(ev, b, el, false));
         handle.addEventListener('mousedown', ev => { ev.stopPropagation(); iniciarArrastre(ev, b, el, true); });
+        if (b.tipo === 'logo' || b.tipo === 'imagen') {
+            el.addEventListener('dblclick', ev => { ev.stopPropagation(); editarUrlBloque(b); });
+        }
 
         canvas.appendChild(el);
     });
-    actualizarBotonesPaleta();
+}
+
+function editarUrlBloque(bloque) {
+    const nuevaUrl = prompt('URL de la imagen para este bloque:', bloque.url || '');
+    if (nuevaUrl === null) return;
+    bloque.url = nuevaUrl.trim();
+    renderCanvas();
 }
 
 function posicionarPz(el, b, cols, rows) {
@@ -884,21 +970,33 @@ function iniciarArrastre(ev, bloque, el, esResize) {
 
 function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
 
-function actualizarBotonesPaleta() {
-    const tiposPresentes = configEnEdicion.layout.blocks.map(b => b.tipo);
-    document.querySelectorAll('.pizarra-toolbar [data-add]').forEach(btn => { btn.disabled = tiposPresentes.includes(btn.dataset.add); });
-}
+function idUnico(tipo) { return tipo + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
 document.querySelectorAll('.pizarra-toolbar [data-add]').forEach(btn => {
     btn.onclick = () => {
         const tipo = btn.dataset.add;
-        if (configEnEdicion.layout.blocks.find(b => b.tipo === tipo)) return;
         const cols = configEnEdicion.layout.cols, rows = configEnEdicion.layout.rows;
-        configEnEdicion.layout.blocks.push({ id: tipo, tipo, col: 1, row: 1, colSpan: Math.min(4, cols), rowSpan: Math.min(3, rows) });
-        bloqueSeleccionado = tipo;
+        const nuevoBloque = { id: idUnico(tipo), tipo, col: 1, row: 1, colSpan: Math.min(4, cols), rowSpan: Math.min(3, rows) };
+        if (tipo === 'logo' || tipo === 'imagen') {
+            const url = prompt('URL de la imagen (podés cambiarla después con doble clic sobre el bloque):', '');
+            if (url) nuevoBloque.url = url.trim();
+        }
+        configEnEdicion.layout.blocks.push(nuevoBloque);
+        bloqueSeleccionado = nuevoBloque.id;
         renderCanvas();
     };
 });
+
+document.getElementById('btnRenombrarBloque').onclick = () => {
+    if (!bloqueSeleccionado) return alert('Seleccioná primero un bloque en la pizarra.');
+    const bloque = configEnEdicion.layout.blocks.find(b => b.id === bloqueSeleccionado);
+    if (!bloque) return;
+    const actual = bloque.nombre || (NOMBRES[bloque.tipo] || bloque.tipo);
+    const nuevo = prompt('Nombre para este bloque (ej: "Mensajes - Piso 1"):', actual);
+    if (nuevo === null) return;
+    bloque.nombre = nuevo.trim();
+    renderCanvas();
+};
 
 document.getElementById('btnQuitarBloque').onclick = () => {
     if (!bloqueSeleccionado) return alert('Seleccioná primero un bloque en la pizarra.');
@@ -926,7 +1024,11 @@ function ajustarBloquesALimites() {
 }
 
 document.getElementById('btnGuardarPizarra').onclick = function() {
-    db.ref('organizaciones/' + orgId + '/sedes/' + sedeConfigActual + '/config/layout').set(configEnEdicion.layout).then(() => alert('🧩 Pantalla guardada.'));
+    db.ref('organizaciones/' + orgId + '/sedes/' + sedeConfigActual + '/config/layout').set(configEnEdicion.layout).then(() => {
+        delete cacheLayouts[sedeConfigActual];
+        actualizarDestinoBloques();
+        alert('🧩 Pantalla guardada.');
+    });
 };
 
 /* ================= ANALÍTICA ================= */
