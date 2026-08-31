@@ -471,7 +471,7 @@ function pintarSedesCheckboxes(sedes) {
         bloque.innerHTML = `<label class="sede-option"><input type="checkbox" class="sede-check" value="${s.id}"> ${s.nombre}</label>
             <div class="sede-link-row"><button type="button">🔗 Copiar enlace</button></div>`;
         bloque.querySelector('.sede-link-row button').onclick = function() { copiarLink(s.id, this); };
-        bloque.querySelector('.sede-check').addEventListener('change', actualizarDestinoBloques);
+        bloque.querySelector('.sede-check').addEventListener('change', () => { destinoSeleccionado = []; actualizarDestinoBloques(); });
         cont.insertBefore(bloque, btnNueva);
     });
 
@@ -593,6 +593,7 @@ document.getElementById('tipo').onchange = function() {
     document.getElementById('contenido').placeholder = (this.value === 'video-yt')
         ? "Pega el link de YT aquí (ej: https://www.youtube.com/watch?v=...)"
         : "Escribe el mensaje o pega el link aquí...";
+    destinoSeleccionado = [];
     actualizarDestinoBloques();
 };
 
