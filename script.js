@@ -127,12 +127,19 @@ if (!orgId) {
 }
 
 // ---------- FILTRO DE VIGENCIA (fecha / hora / día o franjas por día) ----------
+function minutosDeHora(str) {
+    if (!str) return null;
+    const [h, m] = str.split(':').map(Number);
+    if (isNaN(h) || isNaN(m)) return null;
+    return h * 60 + m;
+}
+
 function estaVigente(item) {
     if (typeof item !== 'object' || item === null) return true; // datos viejos sin programación
     const ahora = new Date();
     const offset = ahora.getTimezoneOffset() * 60000;
     const fechaHoy = (new Date(ahora - offset)).toISOString().split('T')[0];
-    const hActual = ahora.getHours().toString().padStart(2, '0') + ":" + ahora.getMinutes().toString().padStart(2, '0');
+    const minutosActuales = ahora.getHours() * 60 + ahora.getMinutes();
     const diaHoy = ahora.getDay();
 
     if (item.fechaInicio && fechaHoy < item.fechaInicio) return false;
@@ -142,12 +149,17 @@ function estaVigente(item) {
     if (item.franjas && Object.keys(item.franjas).length) {
         const f = item.franjas[diaHoy];
         if (!f) return false;
-        return hActual >= f.inicio && hActual <= f.fin;
+        const ini = minutosDeHora(f.inicio), fin = minutosDeHora(f.fin);
+        if (ini === null || fin === null) return true; // dato mal formado: no bloquear la visualización
+        return minutosActuales >= ini && minutosActuales <= fin;
     }
 
     // Modo clásico: días + horario único
     if (item.dias && item.dias.length && !item.dias.includes(diaHoy)) return false;
-    if (item.inicio && item.fin && !(hActual >= item.inicio && hActual <= item.fin)) return false;
+    if (item.inicio && item.fin) {
+        const ini = minutosDeHora(item.inicio), fin = minutosDeHora(item.fin);
+        if (ini !== null && fin !== null && !(minutosActuales >= ini && minutosActuales <= fin)) return false;
+    }
     return true;
 }
 
@@ -427,3 +439,4 @@ setInterval(() => { if ('wakeLock' in navigator) navigator.wakeLock.request('scr
     if (restante < 0) restante += 86400000;
     setTimeout(() => location.reload(), restante);
 })();
+
