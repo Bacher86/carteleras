@@ -244,6 +244,7 @@ function crearBloque(block, d) {
     const el = document.createElement('div');
     el.className = 'bloque bloque-' + tipo;
     el.dataset.blockId = block.id;
+    if (block.colorFondo) el.style.background = block.colorFondo;
 
     if (tipo === 'logo') {
         const img1 = document.createElement('img');
@@ -262,19 +263,19 @@ function crearBloque(block, d) {
         if (block.url) img.src = block.url;
         el.appendChild(img);
     } else if (tipo === 'fecha') {
-        if (d.mostrar.fechaGreg) { const g = document.createElement('div'); g.className = 'rl-fecha-greg'; g.innerText = 'Cargando fecha...'; el.appendChild(g); }
-        if (d.mostrar.fechaHeb) { const h = document.createElement('div'); h.className = 'rl-fecha-heb'; el.appendChild(h); }
+        if (d.mostrar.fechaGreg) { const g = document.createElement('div'); g.className = 'rl-fecha-greg'; g.innerText = 'Cargando fecha...'; if (block.colorTexto) g.style.color = block.colorTexto; el.appendChild(g); }
+        if (d.mostrar.fechaHeb) { const h = document.createElement('div'); h.className = 'rl-fecha-heb'; if (block.colorTexto) h.style.color = block.colorTexto; el.appendChild(h); }
     } else if (tipo === 'reloj') {
-        const r = document.createElement('div'); r.className = 'rl-reloj'; r.innerText = '00:00'; el.appendChild(r);
+        const r = document.createElement('div'); r.className = 'rl-reloj'; r.innerText = '00:00'; if (block.colorTexto) r.style.color = block.colorTexto; el.appendChild(r);
     } else if (tipo === 'mensajes') {
-        const c = document.createElement('div'); c.className = 'rl-mensajes'; el.appendChild(c);
+        const c = document.createElement('div'); c.className = 'rl-mensajes'; if (block.colorTexto) c.dataset.colorTexto = block.colorTexto; el.appendChild(c);
     } else if (tipo === 'fotos') {
         const img = document.createElement('img'); img.className = 'rl-foto-principal'; img.style.display = 'none'; el.appendChild(img);
         const yt = document.createElement('div'); yt.className = 'rl-contenedor-youtube'; yt.style.display = 'none';
         const p = document.createElement('div'); p.className = 'rl-player-yt'; yt.appendChild(p);
         el.appendChild(yt);
     } else if (tipo === 'zocalo') {
-        const m = document.createElement('div'); m.className = 'marquee-track rl-zocalo'; el.appendChild(m);
+        const m = document.createElement('div'); m.className = 'marquee-track rl-zocalo'; if (block.colorTexto) m.style.color = block.colorTexto; el.appendChild(m);
     }
     return el;
 }
@@ -313,10 +314,12 @@ function renderContenido() {
         const blockId = wrapper.dataset.blockId;
         const cont = wrapper.querySelector('.rl-mensajes');
         if (!cont) return;
+        const colorTexto = cont.dataset.colorTexto || '';
         cont.innerHTML = '';
         mensajesPara(blockId).forEach((t, i) => {
             const div = document.createElement('div');
             div.className = 'mensaje-item' + (i === 0 ? ' enfocado' : '');
+            if (colorTexto) div.style.color = colorTexto;
             div.innerText = (typeof t === 'object') ? t.msg : t;
             cont.appendChild(div);
         });
@@ -439,4 +442,3 @@ setInterval(() => { if ('wakeLock' in navigator) navigator.wakeLock.request('scr
     if (restante < 0) restante += 86400000;
     setTimeout(() => location.reload(), restante);
 })();
-
