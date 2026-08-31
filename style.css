@@ -55,13 +55,20 @@ html, body {
 }
 .bloque-logo img { max-height: 90%; max-width: 45%; object-fit: contain; }
 
+/* ---- IMAGEN LIBRE (bloques extra: otro logo, cartel, QR, etc.) ---- */
+.bloque-imagen {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.03);
+}
+.rl-imagen-libre { max-width: 95%; max-height: 95%; object-fit: contain; }
+
 /* ---- FECHA ---- */
 .bloque-fecha {
     display: flex; flex-direction: column; align-items: center; justify-content: center;
     background: var(--color-header-fondo); text-align: center; padding: 6px;
 }
-#fecha-greg { font-size: var(--tam-fecha); color: var(--color-acento); font-weight: 700; text-transform: capitalize; }
-#fecha-heb { font-size: calc(var(--tam-fecha) * 0.78); font-weight: 400; margin-top: 6px; opacity: .9; }
+.rl-fecha-greg { font-size: var(--tam-fecha); color: var(--color-acento); font-weight: 700; text-transform: capitalize; }
+.rl-fecha-heb { font-size: calc(var(--tam-fecha) * 0.78); font-weight: 400; margin-top: 6px; opacity: .9; }
 
 /* ---- RELOJ ---- */
 .bloque-reloj {
@@ -75,7 +82,7 @@ html, body {
     display: flex; align-items: center; justify-content: center;
     background: rgba(255,255,255,0.04);
 }
-#escalera-mensajes { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.rl-mensajes { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
 .mensaje-item {
     position: absolute; width: 88%; text-align: center;
     transition: all 1s ease-in-out;
@@ -92,8 +99,8 @@ html, body {
     display: flex; align-items: center; justify-content: center;
     background: rgba(0,0,0,0.15);
 }
-#foto-principal { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
-#contenedor-youtube, #player-yt { width: 100%; height: 100%; }
+.rl-foto-principal { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+.rl-contenedor-youtube, .rl-player-yt { width: 100%; height: 100%; }
 
 /* ---- ZÓCALO ---- */
 .bloque-zocalo {
