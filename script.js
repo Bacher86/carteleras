@@ -64,14 +64,17 @@ function fusionarConfig(guardado) {
     return c;
 }
 
-let dataActual = { texto: [], fotos: [], zocalo: "", eventos: [] };
+let dataActual = { texto: [], fotos: [], zocalo: [], eventos: [] };
 let configActual = null;
 let configFirma = "";
-let idxFoto = -1;
-let idxMensaje = 0;
-let rotacionFotoInterval = null;
-let player = null, youtubeReady = false, seguroVideo = null;
+let youtubeReady = false;
 const TIEMPO_FOTO = 12000;
+const estadoBloques = {}; // { [blockId]: { idxMensaje, idxFoto, intervalMsg, intervalFoto, player, seguroVideo } }
+
+function estadoDe(blockId) {
+    if (!estadoBloques[blockId]) estadoBloques[blockId] = { idxMensaje: 0, idxFoto: -1, intervalMsg: null, intervalFoto: null, player: null, seguroVideo: null };
+    return estadoBloques[blockId];
+}
 
 function onYouTubeIframeAPIReady() { youtubeReady = true; }
 
@@ -104,7 +107,9 @@ if (!orgId) {
     const dbRemota = db.ref('organizaciones/' + orgId + '/sedes/' + sedeActual);
     dbRemota.on('value', snap => {
         const val = snap.val() || {};
-        dataActual = { texto: val.texto || [], fotos: val.fotos || [], zocalo: val.zocalo || "", eventos: val.eventos || [] };
+        const zocaloRaw = val.zocalo;
+        const zocaloArr = Array.isArray(zocaloRaw) ? zocaloRaw : (zocaloRaw ? [zocaloRaw] : []);
+        dataActual = { texto: val.texto || [], fotos: val.fotos || [], zocalo: zocaloArr, eventos: val.eventos || [] };
 
         const nuevoConfig = fusionarConfig(val.config);
         const firma = JSON.stringify(nuevoConfig);
@@ -118,7 +123,6 @@ if (!orgId) {
     });
 
     setInterval(actualizarReloj, 1000);
-    setInterval(rotarMensajes, 6000);
     actualizarReloj();
 }
 
@@ -147,6 +151,18 @@ function estaVigente(item) {
     return true;
 }
 
+// ---------- FILTRO DE DESTINO (a qué bloque/área de la pantalla va cada contenido) ----------
+// Si el ítem no tiene "destino" (o está vacío), se muestra en TODOS los bloques de ese tipo (comportamiento clásico).
+// Si tiene "destino": [ids...], solo se muestra en esos bloques puntuales.
+function aplicaABloque(item, blockId) {
+    if (typeof item !== 'object' || item === null) return true;
+    if (!item.destino || item.destino.length === 0) return true;
+    return item.destino.includes(blockId);
+}
+function mensajesPara(blockId) { return (dataActual.texto || []).filter(t => estaVigente(t) && aplicaABloque(t, blockId)); }
+function fotosPara(blockId) { return (dataActual.fotos || []).filter(f => estaVigente(f) && aplicaABloque(f, blockId)); }
+function zocaloPara(blockId) { return (dataActual.zocalo || []).filter(z => estaVigente(z) && aplicaABloque(z, blockId)); }
+
 // ---------- DISEÑO (variables CSS) ----------
 function aplicarDiseño(d) {
     const r = document.documentElement.style;
@@ -168,166 +184,202 @@ function aplicarDiseño(d) {
 
 // ---------- CONSTRUCCIÓN DE LA GRILLA (pizarra) ----------
 function construirGrid(cfg) {
+    // limpiar timers/estado de la grilla anterior antes de reconstruir
+    Object.keys(estadoBloques).forEach(id => {
+        const e = estadoBloques[id];
+        clearInterval(e.intervalMsg);
+        clearInterval(e.intervalFoto);
+        clearTimeout(e.seguroVideo);
+        if (e.player && e.player.destroy) { try { e.player.destroy(); } catch (err) {} }
+        delete estadoBloques[id];
+    });
+
     const grid = document.getElementById('grid-cartelera');
     grid.innerHTML = '';
     grid.style.gridTemplateColumns = `repeat(${cfg.layout.cols}, 1fr)`;
     grid.style.gridTemplateRows = `repeat(${cfg.layout.rows}, 1fr)`;
 
     const mostrar = cfg.diseño.mostrar;
-    const visibleMap = { logo: mostrar.logo, fecha: (mostrar.fechaGreg || mostrar.fechaHeb), reloj: mostrar.reloj, mensajes: mostrar.mensajes, fotos: mostrar.fotos, zocalo: mostrar.zocalo };
+    const visibleMap = { logo: mostrar.logo, imagen: true, fecha: (mostrar.fechaGreg || mostrar.fechaHeb), reloj: mostrar.reloj, mensajes: mostrar.mensajes, fotos: mostrar.fotos, zocalo: mostrar.zocalo };
 
     cfg.layout.blocks.forEach(b => {
         if (!visibleMap[b.tipo]) return;
-        const el = crearBloque(b.tipo, cfg.diseño);
+        const el = crearBloque(b, cfg.diseño);
         el.style.gridColumn = `${b.col} / span ${b.colSpan}`;
         el.style.gridRow = `${b.row} / span ${b.rowSpan}`;
         grid.appendChild(el);
+
+        if (b.tipo === 'mensajes') {
+            const e = estadoDe(b.id);
+            e.intervalMsg = setInterval(() => rotarMensajesBloque(b.id), 6000);
+        }
     });
 }
 
-function crearBloque(tipo, d) {
+function crearBloque(block, d) {
+    const tipo = block.tipo;
     const el = document.createElement('div');
     el.className = 'bloque bloque-' + tipo;
+    el.dataset.blockId = block.id;
 
     if (tipo === 'logo') {
         const img1 = document.createElement('img');
-        img1.id = 'logo-institucional';
-        img1.src = d.logoUrl || 'logo.png.png';
+        img1.className = 'rl-logo';
+        img1.src = block.url || d.logoUrl || 'logo.png.png';
         el.appendChild(img1);
-        if (d.logoUrl2) {
+        if (!block.url && d.logoUrl2) {
             const img2 = document.createElement('img');
-            img2.id = 'logo-secundario';
+            img2.className = 'rl-logo';
             img2.src = d.logoUrl2;
             el.appendChild(img2);
         }
+    } else if (tipo === 'imagen') {
+        const img = document.createElement('img');
+        img.className = 'rl-imagen-libre';
+        if (block.url) img.src = block.url;
+        el.appendChild(img);
     } else if (tipo === 'fecha') {
-        if (d.mostrar.fechaGreg) { const g = document.createElement('div'); g.id = 'fecha-greg'; g.innerText = 'Cargando fecha...'; el.appendChild(g); }
-        if (d.mostrar.fechaHeb) { const h = document.createElement('div'); h.id = 'fecha-heb'; el.appendChild(h); }
+        if (d.mostrar.fechaGreg) { const g = document.createElement('div'); g.className = 'rl-fecha-greg'; g.innerText = 'Cargando fecha...'; el.appendChild(g); }
+        if (d.mostrar.fechaHeb) { const h = document.createElement('div'); h.className = 'rl-fecha-heb'; el.appendChild(h); }
     } else if (tipo === 'reloj') {
-        const r = document.createElement('div'); r.id = 'reloj'; r.innerText = '00:00'; el.appendChild(r);
+        const r = document.createElement('div'); r.className = 'rl-reloj'; r.innerText = '00:00'; el.appendChild(r);
     } else if (tipo === 'mensajes') {
-        const c = document.createElement('div'); c.id = 'escalera-mensajes'; el.appendChild(c);
+        const c = document.createElement('div'); c.className = 'rl-mensajes'; el.appendChild(c);
     } else if (tipo === 'fotos') {
-        const img = document.createElement('img'); img.id = 'foto-principal'; img.style.display = 'none'; el.appendChild(img);
-        const yt = document.createElement('div'); yt.id = 'contenedor-youtube'; yt.style.display = 'none';
-        const p = document.createElement('div'); p.id = 'player-yt'; yt.appendChild(p);
+        const img = document.createElement('img'); img.className = 'rl-foto-principal'; img.style.display = 'none'; el.appendChild(img);
+        const yt = document.createElement('div'); yt.className = 'rl-contenedor-youtube'; yt.style.display = 'none';
+        const p = document.createElement('div'); p.className = 'rl-player-yt'; yt.appendChild(p);
         el.appendChild(yt);
     } else if (tipo === 'zocalo') {
-        const m = document.createElement('div'); m.className = 'marquee-track'; m.id = 'texto-zocalo'; el.appendChild(m);
+        const m = document.createElement('div'); m.className = 'marquee-track rl-zocalo'; el.appendChild(m);
     }
     return el;
 }
 
-// ---------- RELOJ Y FECHAS ----------
+// ---------- RELOJ Y FECHAS (aplica a todas las instancias de cada tipo) ----------
 function actualizarReloj() {
     const ahora = new Date();
-    const reloj = document.getElementById('reloj');
-    if (reloj) reloj.innerText = ahora.getHours().toString().padStart(2, '0') + ":" + ahora.getMinutes().toString().padStart(2, '0');
+    const horaTxt = ahora.getHours().toString().padStart(2, '0') + ":" + ahora.getMinutes().toString().padStart(2, '0');
+    document.querySelectorAll('.rl-reloj').forEach(el => el.innerText = horaTxt);
 
-    const fg = document.getElementById('fecha-greg');
-    if (fg) fg.innerText = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    const fechaTxt = ahora.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'long' });
+    document.querySelectorAll('.rl-fecha-greg').forEach(el => el.innerText = fechaTxt);
 
-    const fh = document.getElementById('fecha-heb');
-    if (fh) {
+    const hebEls = document.querySelectorAll('.rl-fecha-heb');
+    if (hebEls.length) {
         fetch('https://www.hebcal.com/converter?cfg=json&gy=' + ahora.getFullYear() + '&gm=' + (ahora.getMonth() + 1) + '&gd=' + ahora.getDate() + '&g2h=1')
-            .then(res => res.json()).then(d => { fh.innerText = d.hd + " de " + d.hm + ", " + d.hy; }).catch(() => {});
+            .then(res => res.json()).then(d => { const txt = d.hd + " de " + d.hm + ", " + d.hy; hebEls.forEach(el => el.innerText = txt); }).catch(() => {});
     }
 
     verificarEventos();
 }
 
-// ---------- CONTENIDO (mensajes / zócalo), filtrado por vigencia ----------
-function mensajesVigentes() { return (dataActual.texto || []).filter(estaVigente); }
-function fotosVigentes() { return (dataActual.fotos || []).filter(estaVigente); }
-
+// ---------- CONTENIDO, ahora independiente por cada bloque ----------
 function renderContenido() {
-    const zoc = document.getElementById('texto-zocalo');
-    if (zoc) {
-        const z = dataActual.zocalo;
-        const zVigente = z && estaVigente(z);
-        zoc.innerText = zVigente ? (typeof z === 'object' ? z.msg : z) : "";
-    }
+    // Zócalos: uno por bloque, concatenando los que apliquen a ese bloque puntual
+    document.querySelectorAll('.bloque-zocalo').forEach(wrapper => {
+        const blockId = wrapper.dataset.blockId;
+        const el = wrapper.querySelector('.rl-zocalo');
+        if (!el) return;
+        const items = zocaloPara(blockId);
+        el.innerText = items.map(z => (typeof z === 'object') ? z.msg : z).join('     •     ');
+    });
 
-    const cont = document.getElementById('escalera-mensajes');
-    if (cont) {
+    // Mensajes: cada bloque arma su propia lista según su "destino"
+    document.querySelectorAll('.bloque-mensajes').forEach(wrapper => {
+        const blockId = wrapper.dataset.blockId;
+        const cont = wrapper.querySelector('.rl-mensajes');
+        if (!cont) return;
         cont.innerHTML = '';
-        idxMensaje = 0;
-        mensajesVigentes().forEach((t, i) => {
+        mensajesPara(blockId).forEach((t, i) => {
             const div = document.createElement('div');
             div.className = 'mensaje-item' + (i === 0 ? ' enfocado' : '');
             div.innerText = (typeof t === 'object') ? t.msg : t;
             cont.appendChild(div);
         });
-    }
+        estadoDe(blockId).idxMensaje = 0;
+    });
 
-    if (document.getElementById('foto-principal') && !rotacionFotoInterval) {
-        rotarFoto();
-        rotacionFotoInterval = setInterval(rotarFoto, TIEMPO_FOTO);
-    }
+    // Fotos/Video: cada bloque arranca su propia rotación si todavía no la tiene corriendo
+    document.querySelectorAll('.bloque-fotos').forEach(wrapper => {
+        const blockId = wrapper.dataset.blockId;
+        const e = estadoDe(blockId);
+        if (!e.intervalFoto && !e.player) rotarFotoBloque(blockId);
+    });
 }
 
-function rotarMensajes() {
-    const mensajes = document.querySelectorAll('.mensaje-item');
-    if (mensajes.length <= 1) return;
-    mensajes.forEach(m => m.classList.remove('enfocado'));
-    idxMensaje = (idxMensaje + 1) % mensajes.length;
-    mensajes[idxMensaje].classList.add('enfocado');
+function rotarMensajesBloque(blockId) {
+    const wrapper = document.querySelector(`.bloque-mensajes[data-block-id="${blockId}"]`);
+    if (!wrapper) return;
+    const items = wrapper.querySelectorAll('.mensaje-item');
+    if (items.length <= 1) return;
+    const e = estadoDe(blockId);
+    items.forEach(m => m.classList.remove('enfocado'));
+    e.idxMensaje = (e.idxMensaje + 1) % items.length;
+    items[e.idxMensaje].classList.add('enfocado');
     registrarImpresion('mensajes');
 }
 
-// ---------- FOTOS / VIDEOS ----------
-function rotarFoto() {
-    const fotos = fotosVigentes();
-    if (fotos.length === 0) return;
-    idxFoto = (idxFoto + 1) % fotos.length;
-    const item = fotos[idxFoto];
-    const img = document.getElementById('foto-principal');
-    const ytContainer = document.getElementById('contenedor-youtube');
+// ---------- FOTOS / VIDEOS: rotación totalmente independiente por bloque ----------
+function rotarFotoBloque(blockId) {
+    const wrapper = document.querySelector(`.bloque-fotos[data-block-id="${blockId}"]`);
+    if (!wrapper) return;
+    const e = estadoDe(blockId);
+    const fotos = fotosPara(blockId);
+    if (fotos.length === 0) { clearInterval(e.intervalFoto); e.intervalFoto = null; return; }
+
+    e.idxFoto = (e.idxFoto + 1) % fotos.length;
+    const item = fotos[e.idxFoto];
+    const img = wrapper.querySelector('.rl-foto-principal');
+    const ytContainer = wrapper.querySelector('.rl-contenedor-youtube');
+    const playerDiv = wrapper.querySelector('.rl-player-yt');
     if (!img || !ytContainer) return;
 
     const esVideo = item.formato === 'video' || (item.url && (item.url.includes('youtube.com') || item.url.includes('youtu.be')));
 
     if (esVideo) {
-        if (!youtubeReady) { setTimeout(rotarFoto, 1500); return; }
-        clearInterval(rotacionFotoInterval); rotacionFotoInterval = null;
+        if (!youtubeReady) { setTimeout(() => rotarFotoBloque(blockId), 1500); return; }
+        clearInterval(e.intervalFoto); e.intervalFoto = null;
         let videoId = "";
         if (item.url.includes('v=')) videoId = item.url.split('v=')[1].split('&')[0];
         else if (item.url.includes('/shorts/')) videoId = item.url.split('/shorts/')[1].split('?')[0];
         else videoId = item.url.split('/').pop().split('?')[0];
 
         img.style.display = 'none'; ytContainer.style.display = 'block';
-        if (!player) {
-            player = new YT.Player('player-yt', {
+        if (!e.player) {
+            e.player = new YT.Player(playerDiv, {
                 height: '100%', width: '100%', videoId,
                 playerVars: { autoplay: 1, mute: 1, controls: 0, modestbranding: 1, rel: 0 },
                 events: {
-                    onStateChange: e => { if (e.data === YT.PlayerState.ENDED) { clearTimeout(seguroVideo); rotarFoto(); reiniciarIntervalo(); } },
-                    onReady: e => { e.target.playVideo(); programarSeguro(e.target.getDuration()); },
-                    onError: () => rotarFoto()
+                    onStateChange: ev => { if (ev.data === YT.PlayerState.ENDED) { clearTimeout(e.seguroVideo); rotarFotoBloque(blockId); reiniciarIntervaloFoto(blockId); } },
+                    onReady: ev => { ev.target.playVideo(); programarSeguroBloque(blockId, ev.target.getDuration()); },
+                    onError: () => rotarFotoBloque(blockId)
                 }
             });
         } else {
-            player.loadVideoById({ videoId }); player.mute(); player.playVideo();
-            setTimeout(() => programarSeguro(player.getDuration()), 1500);
+            e.player.loadVideoById({ videoId }); e.player.mute(); e.player.playVideo();
+            setTimeout(() => programarSeguroBloque(blockId, e.player.getDuration()), 1500);
         }
     } else {
         ytContainer.style.display = 'none';
-        if (player && player.stopVideo) player.stopVideo();
-        clearTimeout(seguroVideo);
+        if (e.player && e.player.stopVideo) e.player.stopVideo();
+        clearTimeout(e.seguroVideo);
         img.src = item.url;
         img.style.display = 'block';
-        if (!rotacionFotoInterval) reiniciarIntervalo();
+        if (!e.intervalFoto) reiniciarIntervaloFoto(blockId);
     }
     registrarImpresion('fotos');
 }
 
-function programarSeguro(dur) {
-    clearTimeout(seguroVideo);
-    if (dur > 0) seguroVideo = setTimeout(() => { rotarFoto(); reiniciarIntervalo(); }, (dur + 5) * 1000);
+function programarSeguroBloque(blockId, dur) {
+    const e = estadoDe(blockId);
+    clearTimeout(e.seguroVideo);
+    if (dur > 0) e.seguroVideo = setTimeout(() => { rotarFotoBloque(blockId); reiniciarIntervaloFoto(blockId); }, (dur + 5) * 1000);
 }
-function reiniciarIntervalo() {
-    clearInterval(rotacionFotoInterval);
-    rotacionFotoInterval = setInterval(rotarFoto, TIEMPO_FOTO);
+function reiniciarIntervaloFoto(blockId) {
+    const e = estadoDe(blockId);
+    clearInterval(e.intervalFoto);
+    e.intervalFoto = setInterval(() => rotarFotoBloque(blockId), TIEMPO_FOTO);
 }
 
 // ---------- ANALÍTICA LIVIANA (impresiones por día) ----------
