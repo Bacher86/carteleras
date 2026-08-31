@@ -103,6 +103,8 @@
     .pz-tipo-zocalo { background: #c0392b; }
     .pz-tipo-imagen { background: #7f8c8d; }
     .pizarra-nota { background: #fdf2d5; border: 1px solid var(--dorado); padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
+    #pz-estilo-bloque { background: #f3eafc; border: 2px solid #8e44ad; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+    #pz-estilo-bloque label { color: #6c2f8f; }
 
     /* ---- Analítica ---- */
     .an-selector { display: flex; gap: 10px; margin-bottom: 15px; }
@@ -319,6 +321,15 @@
         </div>
 
         <div id="pizarra-wrap"><div id="pizarra-canvas"></div></div>
+
+        <div id="pz-estilo-bloque" style="display:none;">
+            <label>🎨 Estilo de "<span id="pz-estilo-nombre"></span>" (solo este bloque)</label>
+            <div class="grid-2">
+                <div><label>Color de fondo</label><input type="color" id="pz-color-fondo"></div>
+                <div id="pz-color-texto-wrap"><label>Color de texto</label><input type="color" id="pz-color-texto"></div>
+            </div>
+            <button type="button" id="btnQuitarEstiloBloque" style="background:#eee;">↺ Usar los colores generales de "Diseño" (quitar personalización)</button>
+        </div>
 
         <div class="grid-2">
             <div><label>Columnas de la grilla <span class="rango-valor" id="v-cols"></span></label><input type="range" id="pz-cols" min="4" max="24" step="1"></div>
@@ -926,6 +937,7 @@ function renderCanvas() {
 
         canvas.appendChild(el);
     });
+    actualizarPanelEstiloBloque();
 }
 
 function editarUrlBloque(bloque) {
@@ -947,6 +959,7 @@ function iniciarArrastre(ev, bloque, el, esResize) {
     bloqueSeleccionado = bloque.id;
     document.querySelectorAll('.pz-bloque').forEach(x => x.classList.remove('seleccionado'));
     el.classList.add('seleccionado');
+    actualizarPanelEstiloBloque();
 
     const rectCanvas = canvas.getBoundingClientRect();
     const cols = configEnEdicion.layout.cols, rows = configEnEdicion.layout.rows;
@@ -972,6 +985,53 @@ function iniciarArrastre(ev, bloque, el, esResize) {
 }
 
 function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+
+/* ---------- Panel de color por bloque (Pizarra) ---------- */
+const TIPOS_CON_TEXTO = ['reloj', 'fecha', 'mensajes', 'zocalo'];
+
+function colorFondoPorDefecto(tipo) {
+    const d = configEnEdicion.diseño;
+    if (tipo === 'zocalo') return colorAHex(d.colorFooterFondo);
+    if (tipo === 'logo' || tipo === 'fecha' || tipo === 'reloj') return colorAHex(d.colorHeaderFondo);
+    return '#000000';
+}
+function colorTextoPorDefecto(tipo) {
+    const d = configEnEdicion.diseño;
+    if (tipo === 'zocalo') return colorAHex(d.colorZocaloTexto);
+    if (tipo === 'mensajes') return colorAHex(d.colorMensaje);
+    if (tipo === 'fecha') return colorAHex(d.colorAcento);
+    return colorAHex(d.colorTexto);
+}
+
+function actualizarPanelEstiloBloque() {
+    const panel = document.getElementById('pz-estilo-bloque');
+    const bloque = configEnEdicion.layout.blocks.find(b => b.id === bloqueSeleccionado);
+    if (!bloque) { panel.style.display = 'none'; return; }
+
+    panel.style.display = 'block';
+    document.getElementById('pz-estilo-nombre').innerText = bloque.nombre || NOMBRES[bloque.tipo] || bloque.tipo;
+    document.getElementById('pz-color-fondo').value = bloque.colorFondo || colorFondoPorDefecto(bloque.tipo);
+
+    const soportaTexto = TIPOS_CON_TEXTO.includes(bloque.tipo);
+    document.getElementById('pz-color-texto-wrap').style.display = soportaTexto ? 'block' : 'none';
+    if (soportaTexto) document.getElementById('pz-color-texto').value = bloque.colorTexto || colorTextoPorDefecto(bloque.tipo);
+}
+
+document.getElementById('pz-color-fondo').addEventListener('input', function() {
+    const bloque = configEnEdicion.layout.blocks.find(b => b.id === bloqueSeleccionado);
+    if (bloque) { bloque.colorFondo = this.value; renderCanvas(); }
+});
+document.getElementById('pz-color-texto').addEventListener('input', function() {
+    const bloque = configEnEdicion.layout.blocks.find(b => b.id === bloqueSeleccionado);
+    if (bloque) { bloque.colorTexto = this.value; renderCanvas(); }
+});
+document.getElementById('btnQuitarEstiloBloque').onclick = () => {
+    const bloque = configEnEdicion.layout.blocks.find(b => b.id === bloqueSeleccionado);
+    if (!bloque) return;
+    delete bloque.colorFondo;
+    delete bloque.colorTexto;
+    renderCanvas();
+};
 
 function idUnico(tipo) { return tipo + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
@@ -1076,4 +1136,3 @@ function cargarAnalitica() {
 </script>
 </body>
 </html>
-
