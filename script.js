@@ -152,16 +152,21 @@ function estaVigente(item) {
 }
 
 // ---------- FILTRO DE DESTINO (a qué bloque/área de la pantalla va cada contenido) ----------
-// Si el ítem no tiene "destino" (o está vacío), se muestra en TODOS los bloques de ese tipo (comportamiento clásico).
-// Si tiene "destino": [ids...], solo se muestra en esos bloques puntuales.
-function aplicaABloque(item, blockId) {
+// Si el ítem no tiene "destino" (o está vacío), se muestra en TODOS los bloques de ese tipo.
+// Si tiene "destino" pero ese/esos bloques YA NO EXISTEN (se borraron/recrearon en la Pizarra),
+// también se muestra en todos lados en vez de desaparecer (auto-reparable, nunca deja contenido huérfano oculto).
+let idsPorTipo = {};
+function aplicaABloque(item, blockId, tipoBloque) {
     if (typeof item !== 'object' || item === null) return true;
     if (!item.destino || item.destino.length === 0) return true;
+    const idsValidos = idsPorTipo[tipoBloque] || [];
+    const algunoDestinoSigueExistiendo = item.destino.some(id => idsValidos.includes(id));
+    if (!algunoDestinoSigueExistiendo) return true; // destino huérfano -> se muestra igual, no se pierde
     return item.destino.includes(blockId);
 }
-function mensajesPara(blockId) { return (dataActual.texto || []).filter(t => estaVigente(t) && aplicaABloque(t, blockId)); }
-function fotosPara(blockId) { return (dataActual.fotos || []).filter(f => estaVigente(f) && aplicaABloque(f, blockId)); }
-function zocaloPara(blockId) { return (dataActual.zocalo || []).filter(z => estaVigente(z) && aplicaABloque(z, blockId)); }
+function mensajesPara(blockId) { return (dataActual.texto || []).filter(t => estaVigente(t) && aplicaABloque(t, blockId, 'mensajes')); }
+function fotosPara(blockId) { return (dataActual.fotos || []).filter(f => estaVigente(f) && aplicaABloque(f, blockId, 'fotos')); }
+function zocaloPara(blockId) { return (dataActual.zocalo || []).filter(z => estaVigente(z) && aplicaABloque(z, blockId, 'zocalo')); }
 
 // ---------- DISEÑO (variables CSS) ----------
 function aplicarDiseño(d) {
@@ -201,6 +206,12 @@ function construirGrid(cfg) {
 
     const mostrar = cfg.diseño.mostrar;
     const visibleMap = { logo: mostrar.logo, imagen: true, fecha: (mostrar.fechaGreg || mostrar.fechaHeb), reloj: mostrar.reloj, mensajes: mostrar.mensajes, fotos: mostrar.fotos, zocalo: mostrar.zocalo };
+
+    idsPorTipo = {};
+    cfg.layout.blocks.forEach(b => {
+        if (!visibleMap[b.tipo]) return;
+        (idsPorTipo[b.tipo] = idsPorTipo[b.tipo] || []).push(b.id);
+    });
 
     cfg.layout.blocks.forEach(b => {
         if (!visibleMap[b.tipo]) return;
