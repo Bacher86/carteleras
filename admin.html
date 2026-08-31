@@ -357,9 +357,9 @@ const firebaseConfig = {
     messagingSenderId: "333887658907",
     appId: "1:333887658907:web:c9d3904ad02a8fd9fe1f3e"
 };
-if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
-const db = firebase.database();
-const auth = firebase.auth();
+const appOrg = firebase.initializeApp(firebaseConfig, 'OrgAdminApp');
+const db = appOrg.database();
+const auth = appOrg.auth();
 
 /* ================= ORGANIZACIÓN ACTUAL (por ?org=) ================= */
 const orgId = new URLSearchParams(window.location.search).get('org');
