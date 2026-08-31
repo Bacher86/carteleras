@@ -1,0 +1,139 @@
+/* =========================================================
+   CARTELERA DIGITAL — Motor de estilos con variables (theming)
+   Todas las variables se pisan dinámicamente desde script.js
+   con lo que el admin configura en la pestaña "Diseño".
+   ========================================================= */
+
+:root {
+    --color-fondo: #2e314f;
+    --color-header-fondo: rgba(0,0,0,0.5);
+    --color-footer-fondo: #5d1a1a;
+    --color-texto: #ffffff;
+    --color-acento: #d4af37;
+    --color-mensaje: #f5d76e;
+    --color-zocalo-texto: #ffffff;
+    --color-borde: #d4af37;
+    --fuente: 'Inter', sans-serif;
+    --tam-mensaje: 4.5rem;
+    --tam-reloj: 4rem;
+    --tam-zocalo: 2.5rem;
+    --tam-fecha: 1.4rem;
+    --radio: 20px;
+    --vel-zocalo: 25s;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+    margin: 0; padding: 0; height: 100%; width: 100%;
+    overflow: hidden;
+    background: var(--color-fondo);
+    color: var(--color-texto);
+    font-family: var(--fuente);
+}
+
+#grid-cartelera {
+    display: grid;
+    width: 100vw;
+    height: 100vh;
+    gap: 8px;
+    padding: 8px;
+}
+
+.bloque {
+    position: relative;
+    overflow: hidden;
+    border-radius: var(--radio);
+    min-width: 0;
+    min-height: 0;
+}
+
+/* ---- LOGO ---- */
+.bloque-logo {
+    display: flex; align-items: center; justify-content: center; gap: 18px;
+    background: var(--color-header-fondo);
+}
+.bloque-logo img { max-height: 90%; max-width: 45%; object-fit: contain; }
+
+/* ---- FECHA ---- */
+.bloque-fecha {
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: var(--color-header-fondo); text-align: center; padding: 6px;
+}
+#fecha-greg { font-size: var(--tam-fecha); color: var(--color-acento); font-weight: 700; text-transform: capitalize; }
+#fecha-heb { font-size: calc(var(--tam-fecha) * 0.78); font-weight: 400; margin-top: 6px; opacity: .9; }
+
+/* ---- RELOJ ---- */
+.bloque-reloj {
+    display: flex; align-items: center; justify-content: center;
+    background: var(--color-header-fondo);
+    font-size: var(--tam-reloj); font-weight: 200;
+}
+
+/* ---- MENSAJES (escalera rotativa) ---- */
+.bloque-mensajes {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(255,255,255,0.04);
+}
+#escalera-mensajes { position: relative; width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; }
+.mensaje-item {
+    position: absolute; width: 88%; text-align: center;
+    transition: all 1s ease-in-out;
+    opacity: 0; visibility: hidden; transform: translateY(20px);
+    line-height: 1.15;
+}
+.mensaje-item.enfocado {
+    opacity: 1; visibility: visible; transform: translateY(0);
+    font-size: var(--tam-mensaje); font-weight: 800; color: var(--color-mensaje); z-index: 10;
+}
+
+/* ---- FOTOS / VIDEO ---- */
+.bloque-fotos {
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.15);
+}
+#foto-principal { max-width: 100%; max-height: 100%; object-fit: contain; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+#contenedor-youtube, #player-yt { width: 100%; height: 100%; }
+
+/* ---- ZÓCALO ---- */
+.bloque-zocalo {
+    display: flex; align-items: center;
+    background: var(--color-footer-fondo);
+}
+.marquee-track {
+    display: inline-block; white-space: nowrap;
+    font-size: var(--tam-zocalo); font-weight: bold; color: var(--color-zocalo-texto);
+    animation: scroll-marq var(--vel-zocalo) linear infinite;
+    padding-left: 100%;
+}
+@keyframes scroll-marq { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+/* ---- OVERLAY DE EVENTO / MENSAJE IMPORTANTE ---- */
+#overlay-evento {
+    display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.85); backdrop-filter: blur(10px);
+    z-index: 9999; justify-content: center; align-items: center;
+    font-family: var(--fuente);
+}
+#overlay-evento .placa {
+    background: #ffffff; color: #1a1a1a; width: 70%; padding: 60px;
+    border-radius: 30px; box-shadow: 0 25px 50px rgba(0,0,0,0.5);
+    border-top: 15px solid var(--color-fondo); text-align: center;
+}
+#overlay-evento .etiqueta {
+    text-transform: uppercase; letter-spacing: 4px; font-weight: 700;
+    color: var(--color-acento); margin-bottom: 30px; font-size: 1.5rem;
+}
+#texto-evento-contenido { font-size: 3.5rem; font-weight: 800; line-height: 1.2; color: var(--color-fondo); word-wrap: break-word; }
+#overlay-evento .footer-nota { margin-top: 40px; border-top: 1px solid #eee; padding-top: 20px; font-size: 1.2rem; color: #888; }
+
+/* Pantalla de espera si no hay sede / no hay datos */
+#pantalla-vacia {
+    display: none; position: fixed; inset: 0; align-items: center; justify-content: center;
+    flex-direction: column; gap: 20px; background: #12141f; color: #ffffff; text-align: center;
+    font-family: 'Inter', sans-serif;
+}
+#pantalla-vacia code { background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 6px; }
+#pantalla-vacia.suspendida { background: #3a1616; }
+#pantalla-vacia .icono { font-size: 4rem; }
+

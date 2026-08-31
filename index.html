@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Cartelera Digital</title>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&family=Poppins:wght@400;600;800&family=Montserrat:wght@400;700;900&family=Raleway:wght@400;700;900&family=Oswald:wght@400;600;700&family=Playfair+Display:wght@400;700;900&family=Bebas+Neue&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+
+<link rel="stylesheet" href="style.css">
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+<script src="https://www.youtube.com/iframe_api"></script>
+</head>
+<body>
+
+<div id="grid-cartelera"></div>
+
+<div id="pantalla-vacia"></div>
+
+<div id="overlay-evento">
+    <div class="placa">
+        <div class="etiqueta">Comunicado Importante</div>
+        <div id="texto-evento-contenido"></div>
+        <div class="footer-nota">Por favor, preste atención a esta información.</div>
+    </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

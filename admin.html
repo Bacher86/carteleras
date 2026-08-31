@@ -1,0 +1,973 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel Central Escolar — PRO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;700;800;900&family=Poppins:wght@400;600;800&family=Montserrat:wght@400;700;900&family=Raleway:wght@400;700;900&family=Oswald:wght@400;600;700&family=Playfair+Display:wght@400;700;900&family=Bebas+Neue&family=Roboto:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+    :root { --azul: #2e314f; --dorado: #d4af37; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #eef2f3; color: #333; }
+    .panel { background: white; padding: 30px; border-radius: 15px; max-width: 1020px; margin: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    h2 { color: var(--azul); border-bottom: 3px solid var(--dorado); padding-bottom: 10px; margin-top: 0; }
+    label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; color: var(--azul); }
+    input, select, button, textarea { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 8px; box-sizing: border-box; font-size: 1rem; font-family: inherit; }
+    input[type=color] { padding: 4px; height: 46px; cursor: pointer; }
+    input[type=range] { padding: 0; }
+
+    /* ---- Login ---- */
+    #vista-login { max-width: 420px; margin: 60px auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.1); text-align: center; }
+    #vista-login h1 { color: var(--azul); font-size: 1.4rem; }
+    #vista-login .nota { font-size: 0.85rem; color: #888; margin-top: 15px; }
+    #vista-login button { background: var(--azul); color: white; border: none; font-weight: bold; cursor: pointer; }
+    #login-error { color: #c0392b; font-size: 0.9rem; min-height: 20px; }
+
+    /* ---- Barra superior de la organización ---- */
+    #barra-org { display: flex; justify-content: space-between; align-items: center; background: #f7f9fb; padding: 12px 20px; border-radius: 10px; margin-bottom: 20px; flex-wrap: wrap; gap: 10px; }
+    #barra-org .info { font-size: 0.95rem; }
+    #barra-org b { color: var(--azul); }
+    #barra-org .badge { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; margin-left: 8px; }
+    .badge-ok { background: #d4f8e8; color: #178a5b; }
+    .badge-alerta { background: #fdf0d5; color: #b9770e; }
+    #barra-org button { width: auto; margin: 0; background: #eee; color: #555; cursor: pointer; font-size: 0.85rem; padding: 8px 14px; }
+
+    /* ---- Tabs ---- */
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+    .tab-btn { flex: 1; min-width: 130px; width: auto; background: #f0f4f8; color: var(--azul); border: 2px solid transparent; font-weight: bold; cursor: pointer; margin: 0; }
+    .tab-btn.activo { background: var(--azul); color: white; border-color: var(--dorado); }
+    .tab-contenido { display: none; }
+    .tab-contenido.activo { display: block; }
+
+    .sedes-container { background: #fdf2d5; border: 1px solid var(--dorado); padding: 15px; border-radius: 8px; display: flex; justify-content: flex-start; margin-bottom: 15px; flex-wrap: wrap; gap: 14px; align-items: flex-start; }
+    .sede-option { cursor: pointer; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; font-weight: bold; }
+    .sede-option input { width: auto; margin: 0; }
+    #btnNuevaSede { width: auto; margin: 0; background: white; border: 1px dashed var(--dorado); color: #b9770e; font-weight: bold; padding: 6px 14px; cursor: pointer; font-size: 0.85rem; }
+
+    #btnSubir { background: var(--azul); color: white; border: none; cursor: pointer; font-weight: bold; transition: 0.3s; padding: 15px; }
+    #btnSubir.modo-edit { background: #27ae60; }
+    #btnSubir:hover { opacity: 0.9; }
+
+    .historial-container { margin-top: 30px; border-top: 2px solid #eee; padding-top: 20px; }
+    .historial-item { background: #f9f9f9; padding: 12px; margin-bottom: 10px; border-radius: 8px; border-left: 5px solid var(--azul); display: flex; justify-content: space-between; align-items: center; }
+    .btn-editar { background: #3498db; width: auto; padding: 5px 12px; font-size: 0.8rem; margin: 0; color: white; border: none; border-radius: 4px; cursor: pointer; }
+    .btn-borrar { background: #e74c3c; width: auto; padding: 5px 12px; font-size: 0.8rem; margin: 0; color: white; border: none; border-radius: 4px; cursor: pointer; }
+
+    /* ---- Calendario visual semanal ---- */
+    #calendario-wrap { background: #f0f4f8; padding: 15px; border-radius: 8px; margin-bottom: 15px; border: 1px dashed var(--azul); }
+    .cal-nota { font-size: 0.8rem; color: #667; margin-bottom: 10px; }
+    .cal-tabla { display: grid; grid-template-columns: 50px repeat(7, 1fr); gap: 2px; user-select: none; }
+    .cal-header { text-align: center; font-weight: bold; font-size: 0.8rem; color: var(--azul); padding: 4px 0; }
+    .cal-hora-label { font-size: 0.7rem; color: #888; text-align: right; padding-right: 4px; line-height: 22px; }
+    .cal-celda { height: 22px; background: white; border: 1px solid #dde5ec; border-radius: 3px; cursor: pointer; }
+    .cal-celda.sel { background: var(--dorado); border-color: #b9770e; }
+    .cal-acciones { display: flex; gap: 8px; margin-top: 10px; }
+    .cal-acciones button { width: auto; margin: 0; background: white; border: 1px solid #ccc; font-size: 0.8rem; padding: 6px 12px; cursor: pointer; }
+    #cal-resumen { font-size: 0.8rem; color: #555; margin-top: 8px; }
+
+    /* ---- Diseño ---- */
+    .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 0 20px; }
+    .grid-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0 20px; }
+    .toggle-row { display: flex; align-items: center; gap: 10px; background: #f7f9fb; padding: 10px 14px; border-radius: 8px; margin-bottom: 8px; }
+    .toggle-row input { width: auto; margin: 0; }
+    .toggle-row label { margin: 0; font-weight: 600; color: #333; }
+    .rango-valor { font-weight: normal; color: #888; font-size: 0.85rem; }
+    #btnGuardarDiseño, #btnGuardarPizarra { background: #8e44ad; color: white; border: none; font-weight: bold; padding: 15px; cursor: pointer; }
+    .vista-previa { border-radius: 12px; padding: 20px; margin-top: 10px; text-align: center; transition: all .3s; }
+
+    /* ---- Pizarra ---- */
+    .pizarra-toolbar { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+    .pizarra-toolbar button { width: auto; margin: 0; background: #f0f4f8; color: var(--azul); font-weight: bold; border: 2px solid #dde5ec; cursor: pointer; padding: 10px 14px; font-size: 0.85rem; }
+    .pizarra-toolbar button:disabled { opacity: 0.4; cursor: not-allowed; }
+    #pizarra-wrap { display: flex; justify-content: center; margin-bottom: 15px; }
+    #pizarra-canvas {
+        position: relative; width: 880px; max-width: 100%; aspect-ratio: 16/9;
+        background-color: #1b1d2e;
+        background-image: linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px);
+        border-radius: 14px; overflow: hidden; border: 2px solid var(--azul); user-select: none;
+    }
+    .pz-bloque {
+        position: absolute; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+        color: white; font-size: 0.85rem; font-weight: bold; text-align: center; cursor: grab;
+        border: 2px solid rgba(255,255,255,0.25); padding: 4px; line-height: 1.2;
+    }
+    .pz-bloque:active { cursor: grabbing; }
+    .pz-bloque.seleccionado { border-color: var(--dorado); box-shadow: 0 0 0 2px var(--dorado); }
+    .pz-resize { position: absolute; right: 0; bottom: 0; width: 16px; height: 16px; background: var(--dorado); cursor: nwse-resize; border-radius: 3px 0 8px 0; }
+    .pz-tipo-logo { background: #34495e; }
+    .pz-tipo-fecha { background: #2c3e50; }
+    .pz-tipo-reloj { background: #16a085; }
+    .pz-tipo-mensajes { background: #8e44ad; }
+    .pz-tipo-fotos { background: #2980b9; }
+    .pz-tipo-zocalo { background: #c0392b; }
+    .pizarra-nota { background: #fdf2d5; border: 1px solid var(--dorado); padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
+
+    /* ---- Analítica ---- */
+    .an-selector { display: flex; gap: 10px; margin-bottom: 15px; }
+    .an-barra-fila { display: flex; align-items: center; gap: 10px; margin-bottom: 8px; }
+    .an-barra-label { width: 110px; font-size: 0.85rem; color: #555; flex-shrink: 0; }
+    .an-barra-track { flex: 1; background: #eee; border-radius: 6px; overflow: hidden; height: 22px; }
+    .an-barra-fill { height: 100%; background: linear-gradient(90deg, var(--dorado), #b9770e); display: flex; align-items: center; justify-content: flex-end; padding-right: 8px; color: white; font-size: 0.75rem; font-weight: bold; }
+    .an-vacio { color: #999; text-align: center; padding: 30px; }
+
+    /* ---- Links de cada sede (en Contenido) ---- */
+    .sede-block { display: flex; flex-direction: column; gap: 6px; background: white; padding: 8px 12px; border-radius: 8px; }
+    .sede-link-row { display: flex; align-items: center; gap: 6px; }
+    .sede-link-row button { width: auto; margin: 0; padding: 4px 8px; font-size: 0.75rem; background: #eaf2fb; color: #2980b9; border: none; border-radius: 5px; cursor: pointer; }
+
+    /* ---- Vista en Vivo ---- */
+    .vivo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(400px, 1fr)); gap: 22px; }
+    .vivo-card { border: 1px solid #ddd; border-radius: 12px; overflow: hidden; background: #fff; box-shadow: 0 4px 12px rgba(0,0,0,0.06); }
+    .vivo-frame-wrap { width: 400px; height: 225px; max-width: 100%; overflow: hidden; position: relative; background: #000; }
+    .vivo-frame-wrap iframe { width: 1280px; height: 720px; border: 0; transform: scale(0.3125); transform-origin: top left; pointer-events: none; }
+    .vivo-info { padding: 12px 14px; }
+    .vivo-info h4 { margin: 0 0 6px 0; color: var(--azul); }
+    .vivo-link-row { display: flex; gap: 6px; margin-top: 8px; }
+    .vivo-link-row input { flex: 1; font-size: 0.72rem; background: #f5f5f5; padding: 8px; margin: 0; }
+    .vivo-link-row button { width: auto; margin: 0; padding: 8px 12px; font-size: 0.75rem; cursor: pointer; background: var(--azul); color: white; border: none; border-radius: 6px; }
+    .vivo-link-row a { width: auto; text-decoration: none; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ -->
+<!-- VISTA DE LOGIN                                                 -->
+<!-- ============================================================ -->
+<div id="vista-login">
+    <h1>🔐 Panel Escolar</h1>
+    <p id="login-org-nombre" style="color:#888; font-size:0.9rem;">Cargando institución...</p>
+    <input type="email" id="login-email" placeholder="Email">
+    <input type="password" id="login-pass" placeholder="Contraseña">
+    <button id="btnLogin">Ingresar</button>
+    <div id="login-error"></div>
+    <div class="nota">¿Tu institución todavía no tiene cartelera? <a href="solicitud.html" target="_blank">Pedí el alta acá</a>.</div>
+</div>
+
+<!-- ============================================================ -->
+<!-- PANEL PRINCIPAL (oculto hasta iniciar sesión)                 -->
+<!-- ============================================================ -->
+<div class="panel" id="vista-panel" style="display:none;">
+
+    <div id="barra-org">
+        <div class="info">🏫 <b id="org-nombre-barra">—</b> · Plan <span id="org-plan-barra">—</span>
+            <span class="badge" id="org-vencimiento-badge"></span>
+        </div>
+        <button id="btnLogout">Cerrar sesión</button>
+    </div>
+
+    <h2 id="titulo-panel">🚀 Panel de Control <span style="font-size:0.6em; color:#8e44ad;">PRO</span></h2>
+
+    <div class="tabs">
+        <button class="tab-btn activo" data-tab="tab-contenido">📝 Contenido</button>
+        <button class="tab-btn" data-tab="tab-diseno">🎨 Diseño</button>
+        <button class="tab-btn" data-tab="tab-pizarra">🧩 Pizarra</button>
+        <button class="tab-btn" data-tab="tab-vivo">🖥️ Vista en Vivo</button>
+        <button class="tab-btn" data-tab="tab-analitica">📊 Analítica</button>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 1: CONTENIDO                                              -->
+    <!-- ============================================================ -->
+    <div class="tab-contenido activo" id="tab-contenido">
+
+        <label>🏢 EDIFICIOS / PANTALLAS DESTINO:</label>
+        <div class="sedes-container" id="sedes-checkboxes">
+            <!-- se llena dinámicamente -->
+            <button type="button" id="btnNuevaSede">➕ Nueva pantalla/sede</button>
+        </div>
+
+        <label>TIPO DE PUBLICACIÓN:</label>
+        <select id="tipo">
+            <option value="texto">📝 Mensaje Central (Rotativo)</option>
+            <option value="foto">🖼️ Foto (Formato Normal)</option>
+            <option value="foto-completa">📺 Foto (Pantalla Completa)</option>
+            <option value="video-yt">🎬 Video de YouTube</option>
+            <option value="zocalo">🎞️ Noticia Zócalo (Abajo)</option>
+            <option value="evento">⚠️ MENSAJE IMPORTANTE (Bloqueo)</option>
+        </select>
+
+        <textarea id="contenido" placeholder="Escribe el mensaje o pega el link aquí..." rows="4"></textarea>
+
+        <div id="calendario-wrap">
+            <label style="margin-top:0;">📅 VIGENCIA (calendario visual)</label>
+            <div class="cal-nota">Pintá los horarios en los que se debe mostrar. Si no pintás nada, se muestra siempre.</div>
+            <div style="display:flex; gap:10px; margin-bottom:10px;">
+                <input type="date" id="fecha-inicio" title="Desde (fecha)">
+                <input type="date" id="fecha-fin" title="Hasta (fecha)">
+            </div>
+            <div id="cal-tabla" class="cal-tabla"></div>
+            <div class="cal-acciones">
+                <button type="button" id="btnCalLimpiar">🗑️ Limpiar horarios</button>
+                <button type="button" id="btnCalTodoElDia">☀️ Marcar todo el día (L-V)</button>
+            </div>
+            <div id="cal-resumen">Sin restricción de horario.</div>
+        </div>
+
+        <button id="btnSubir">🚀 PUBLICAR AHORA</button>
+
+        <div class="historial-container">
+            <label>VER Y EDITAR HISTORIAL DE:</label>
+            <select id="ver-historial-sede"></select>
+            <div id="historial">Cargando...</div>
+        </div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 2: DISEÑO                                                 -->
+    <!-- ============================================================ -->
+    <div class="tab-contenido" id="tab-diseno">
+
+        <label>Sede a diseñar</label>
+        <select id="diseno-sede-activa"></select>
+
+        <label>🖼️ LOGO PRINCIPAL (URL de imagen)</label>
+        <input type="text" id="d-logoUrl" placeholder="https://... o logo.png.png">
+        <label>🖼️ LOGO SECUNDARIO (opcional)</label>
+        <input type="text" id="d-logoUrl2" placeholder="Dejar vacío si no aplica">
+
+        <div class="grid-3">
+            <div><label>Color de fondo general</label><input type="color" id="d-colorFondo"></div>
+            <div><label>Color de header/franjas</label><input type="color" id="d-colorHeaderFondo"></div>
+            <div><label>Color de zócalo (footer)</label><input type="color" id="d-colorFooterFondo"></div>
+        </div>
+        <div class="grid-3">
+            <div><label>Color de texto general</label><input type="color" id="d-colorTexto"></div>
+            <div><label>Color de acento</label><input type="color" id="d-colorAcento"></div>
+            <div><label>Color del mensaje destacado</label><input type="color" id="d-colorMensaje"></div>
+        </div>
+        <div><label>Color de texto del zócalo</label><input type="color" id="d-colorZocaloTexto"></div>
+
+        <label>Tipografía</label>
+        <select id="d-fuente">
+            <option value="Inter">Inter (moderna, neutra)</option>
+            <option value="Poppins">Poppins (redondeada)</option>
+            <option value="Montserrat">Montserrat (geométrica)</option>
+            <option value="Raleway">Raleway (elegante)</option>
+            <option value="Oswald">Oswald (condensada, fuerte)</option>
+            <option value="Playfair Display">Playfair Display (clásica/serif)</option>
+            <option value="Bebas Neue">Bebas Neue (cartelería / impacto)</option>
+            <option value="Roboto">Roboto (clásica)</option>
+        </select>
+
+        <div class="grid-2">
+            <div><label>Tamaño del mensaje central <span class="rango-valor" id="v-tamMensaje"></span></label><input type="range" id="d-tamMensaje" min="2" max="7" step="0.1"></div>
+            <div><label>Tamaño del reloj <span class="rango-valor" id="v-tamReloj"></span></label><input type="range" id="d-tamReloj" min="1.5" max="6" step="0.1"></div>
+        </div>
+        <div class="grid-2">
+            <div><label>Tamaño del zócalo <span class="rango-valor" id="v-tamZocalo"></span></label><input type="range" id="d-tamZocalo" min="1" max="4" step="0.1"></div>
+            <div><label>Velocidad del zócalo (seg) <span class="rango-valor" id="v-velocidadZocalo"></span></label><input type="range" id="d-velocidadZocalo" min="8" max="45" step="1"></div>
+        </div>
+        <div class="grid-2">
+            <div><label>Tamaño de la fecha <span class="rango-valor" id="v-tamFecha"></span></label><input type="range" id="d-tamFecha" min="0.8" max="2.5" step="0.1"></div>
+            <div><label>Redondeo de bordes <span class="rango-valor" id="v-radio"></span></label><input type="range" id="d-radio" min="0" max="50" step="1"></div>
+        </div>
+
+        <label>👁️ QUÉ MOSTRAR EN PANTALLA</label>
+        <div class="toggle-row"><input type="checkbox" id="m-logo"><label for="m-logo">Logo</label></div>
+        <div class="toggle-row"><input type="checkbox" id="m-fechaGreg"><label for="m-fechaGreg">Fecha (calendario común)</label></div>
+        <div class="toggle-row"><input type="checkbox" id="m-fechaHeb"><label for="m-fechaHeb">Fecha hebrea</label></div>
+        <div class="toggle-row"><input type="checkbox" id="m-reloj"><label for="m-reloj">Reloj</label></div>
+        <div class="toggle-row"><input type="checkbox" id="m-mensajes"><label for="m-mensajes">Mensajes rotativos</label></div>
+        <div class="toggle-row"><input type="checkbox" id="m-fotos"><label for="m-fotos">Fotos / Video</label></div>
+        <div class="toggle-row"><input type="checkbox" id="m-zocalo"><label for="m-zocalo">Zócalo (noticia inferior)</label></div>
+
+        <div class="vista-previa" id="vista-previa">
+            <div id="vp-fecha" style="font-weight:700; text-transform:capitalize;">lunes, 1 de enero</div>
+            <div id="vp-mensaje" style="font-weight:800; margin:14px 0;">Así se va a ver el mensaje central</div>
+            <div id="vp-reloj" style="font-weight:200;">18:45</div>
+        </div>
+
+        <button id="btnGuardarDiseño">💾 GUARDAR DISEÑO</button>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 3: PIZARRA                                                -->
+    <!-- ============================================================ -->
+    <div class="tab-contenido" id="tab-pizarra">
+        <label>Sede a organizar</label>
+        <select id="pizarra-sede-activa"></select>
+
+        <div class="pizarra-nota">
+            Arrastrá los bloques para moverlos. Usá la esquina 🟨 inferior-derecha para cambiar su tamaño.
+            Los bloques ocultos en la pestaña <b>Diseño</b> no aparecen acá.
+        </div>
+
+        <div class="pizarra-toolbar">
+            <button data-add="logo">➕ Logo</button>
+            <button data-add="fecha">➕ Fecha</button>
+            <button data-add="reloj">➕ Reloj</button>
+            <button data-add="mensajes">➕ Mensajes</button>
+            <button data-add="fotos">➕ Fotos/Video</button>
+            <button data-add="zocalo">➕ Zócalo</button>
+            <button id="btnQuitarBloque" style="background:#fde3e3; color:#c0392b;">🗑️ Quitar seleccionado</button>
+            <button id="btnResetPizarra" style="background:#eee;">↺ Restaurar diseño clásico</button>
+        </div>
+
+        <div id="pizarra-wrap"><div id="pizarra-canvas"></div></div>
+
+        <div class="grid-2">
+            <div><label>Columnas de la grilla <span class="rango-valor" id="v-cols"></span></label><input type="range" id="pz-cols" min="4" max="24" step="1"></div>
+            <div><label>Filas de la grilla <span class="rango-valor" id="v-rows"></span></label><input type="range" id="pz-rows" min="4" max="24" step="1"></div>
+        </div>
+
+        <button id="btnGuardarPizarra">💾 GUARDAR PANTALLA</button>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB: VISTA EN VIVO                                            -->
+    <!-- ============================================================ -->
+    <div class="tab-contenido" id="tab-vivo">
+        <div class="pizarra-nota">
+            Esto es literalmente lo que está mostrando cada pantalla ahora mismo (se actualiza solo).
+            Cada dirección/edificio tiene su propio enlace: es el que tenés que abrir en la Smart TV o el reproductor de esa pantalla.
+        </div>
+        <div class="vivo-grid" id="vivo-grid"><p style="color:#999;">Creá una sede para verla acá.</p></div>
+    </div>
+
+    <!-- ============================================================ -->
+    <!-- TAB 4: ANALÍTICA                                              -->
+    <!-- ============================================================ -->
+    <div class="tab-contenido" id="tab-analitica">
+        <div class="an-selector">
+            <select id="an-sede"></select>
+            <select id="an-dias">
+                <option value="7">Últimos 7 días</option>
+                <option value="14">Últimos 14 días</option>
+                <option value="30">Últimos 30 días</option>
+            </select>
+        </div>
+        <label>Contenidos mostrados por día</label>
+        <div id="an-contenido"></div>
+    </div>
+
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyAzBO8TzuGeAV-_nsGDgIWckWhV_vkOhTY",
+    authDomain: "cartelera-nube.firebaseapp.com",
+    databaseURL: "https://cartelera-nube-default-rtdb.firebaseio.com",
+    projectId: "cartelera-nube",
+    storageBucket: "cartelera-nube.firebasestorage.app",
+    messagingSenderId: "333887658907",
+    appId: "1:333887658907:web:c9d3904ad02a8fd9fe1f3e"
+};
+if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+const auth = firebase.auth();
+
+/* ================= ORGANIZACIÓN ACTUAL (por ?org=) ================= */
+const orgId = new URLSearchParams(window.location.search).get('org');
+let orgMeta = null;
+
+if (!orgId) {
+    document.getElementById('login-org-nombre').innerText = '⚠️ Falta el parámetro ?org=NOMBRE-ESCUELA en la URL.';
+    document.getElementById('btnLogin').disabled = true;
+} else {
+    db.ref('organizaciones/' + orgId + '/meta').once('value').then(snap => {
+        orgMeta = snap.val();
+        document.getElementById('login-org-nombre').innerText = orgMeta ? ('Institución: ' + orgMeta.nombre) : 'Institución no encontrada: ' + orgId;
+        if (!orgMeta) document.getElementById('btnLogin').disabled = true;
+    });
+}
+
+/* ================= LOGIN ================= */
+document.getElementById('btnLogin').onclick = () => {
+    const email = document.getElementById('login-email').value.trim();
+    const pass = document.getElementById('login-pass').value;
+    document.getElementById('login-error').innerText = '';
+    auth.signInWithEmailAndPassword(email, pass).catch(err => {
+        document.getElementById('login-error').innerText = 'Email o contraseña incorrectos.';
+    });
+};
+document.getElementById('btnLogout').onclick = () => auth.signOut();
+
+auth.onAuthStateChanged(user => {
+    if (!user) {
+        document.getElementById('vista-login').style.display = 'block';
+        document.getElementById('vista-panel').style.display = 'none';
+        return;
+    }
+    db.ref('usuarios/' + user.uid).once('value').then(snap => {
+        const u = snap.val();
+        if (!u || u.orgId !== orgId) {
+            document.getElementById('login-error').innerText = 'Este usuario no pertenece a esta institución.';
+            auth.signOut();
+            return;
+        }
+        iniciarPanel();
+    });
+});
+
+function iniciarPanel() {
+    document.getElementById('vista-login').style.display = 'none';
+    document.getElementById('vista-panel').style.display = 'block';
+
+    db.ref('organizaciones/' + orgId + '/meta').on('value', snap => {
+        orgMeta = snap.val() || {};
+        document.getElementById('org-nombre-barra').innerText = orgMeta.nombre || orgId;
+        document.getElementById('org-plan-barra').innerText = orgMeta.plan || 'básico';
+        const badge = document.getElementById('org-vencimiento-badge');
+        if (orgMeta.fechaVencimiento) {
+            const diasRestantes = Math.ceil((new Date(orgMeta.fechaVencimiento) - new Date()) / 86400000);
+            if (diasRestantes <= 7) { badge.className = 'badge badge-alerta'; badge.innerText = `Vence en ${diasRestantes}d`; }
+            else { badge.className = 'badge badge-ok'; badge.innerText = `Vence ${orgMeta.fechaVencimiento}`; }
+        }
+        pintarSedesCheckboxes(orgMeta.sedes || []);
+        pintarSelectoresSede(orgMeta.sedes || []);
+        pintarVistaEnVivo(orgMeta.sedes || []);
+    });
+}
+
+/* ================= TABS ================= */
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('activo'));
+        document.querySelectorAll('.tab-contenido').forEach(t => t.classList.remove('activo'));
+        btn.classList.add('activo');
+        document.getElementById(btn.dataset.tab).classList.add('activo');
+        if (btn.dataset.tab === 'tab-analitica') cargarAnalitica();
+    };
+});
+
+/* ================= SEDES DINÁMICAS ================= */
+function construirLinkSede(sedeId) {
+    return window.location.origin + window.location.pathname.replace('admin.html', 'index.html') + '?org=' + encodeURIComponent(orgId) + '&sede=' + encodeURIComponent(sedeId);
+}
+
+function copiarLink(sedeId, btn) {
+    const link = construirLinkSede(sedeId);
+    navigator.clipboard.writeText(link).then(() => {
+        if (btn) { const t = btn.innerText; btn.innerText = '✅ Copiado'; setTimeout(() => btn.innerText = t, 1500); }
+    }).catch(() => alert(link));
+}
+
+function pintarSedesCheckboxes(sedes) {
+    const cont = document.getElementById('sedes-checkboxes');
+    cont.querySelectorAll('.sede-block').forEach(el => el.remove());
+    const btnNueva = document.getElementById('btnNuevaSede');
+    sedes.forEach(s => {
+        const bloque = document.createElement('div');
+        bloque.className = 'sede-block';
+        bloque.innerHTML = `<label class="sede-option"><input type="checkbox" class="sede-check" value="${s.id}"> ${s.nombre}</label>
+            <div class="sede-link-row"><button type="button">🔗 Copiar enlace</button></div>`;
+        bloque.querySelector('.sede-link-row button').onclick = function() { copiarLink(s.id, this); };
+        cont.insertBefore(bloque, btnNueva);
+    });
+
+    const histSel = document.getElementById('ver-historial-sede');
+    const valPrevio = histSel.value;
+    histSel.innerHTML = sedes.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+    if (sedes.some(s => s.id === valPrevio)) histSel.value = valPrevio;
+    cargarHistorial();
+}
+
+function pintarVistaEnVivo(sedes) {
+    const grid = document.getElementById('vivo-grid');
+    if (!sedes.length) { grid.innerHTML = '<p style="color:#999;">Creá una sede para verla acá.</p>'; return; }
+    grid.innerHTML = sedes.map(s => {
+        const link = construirLinkSede(s.id);
+        return `<div class="vivo-card">
+            <div class="vivo-frame-wrap"><iframe src="${link}" loading="lazy"></iframe></div>
+            <div class="vivo-info">
+                <h4>📍 ${s.nombre}</h4>
+                <div class="vivo-link-row">
+                    <input type="text" readonly value="${link}" onclick="this.select()">
+                    <button onclick="copiarLink('${s.id}', this)">🔗 Copiar</button>
+                    <a href="${link}" target="_blank"><button type="button" style="background:#eee; color:#555;">Abrir ↗</button></a>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function pintarSelectoresSede(sedes) {
+    ['diseno-sede-activa', 'pizarra-sede-activa', 'an-sede'].forEach(id => {
+        const sel = document.getElementById(id);
+        const valPrevio = sel.value;
+        sel.innerHTML = sedes.map(s => `<option value="${s.id}">${s.nombre}</option>`).join('');
+        if (sedes.some(s => s.id === valPrevio)) sel.value = valPrevio;
+    });
+    if (sedes.length && !configEnEdicion) cargarConfigSede(document.getElementById('diseno-sede-activa').value);
+}
+
+document.getElementById('btnNuevaSede').onclick = () => {
+    const nombre = prompt('Nombre de la nueva pantalla/sede (ej: "Primaria", "Recepción"):');
+    if (!nombre) return;
+    const id = nombre.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    if (!id) return alert('Nombre inválido.');
+    const sedes = (orgMeta.sedes || []).slice();
+    if (sedes.some(s => s.id === id)) return alert('Ya existe una sede con ese identificador.');
+    sedes.push({ id, nombre });
+    db.ref('organizaciones/' + orgId + '/meta/sedes').set(sedes);
+};
+
+/* ================= CALENDARIO VISUAL SEMANAL ================= */
+const DIAS_SEMANA = [
+    { idx: 1, nombre: 'Lun' }, { idx: 2, nombre: 'Mar' }, { idx: 3, nombre: 'Mié' },
+    { idx: 4, nombre: 'Jue' }, { idx: 5, nombre: 'Vie' }, { idx: 6, nombre: 'Sáb' }, { idx: 0, nombre: 'Dom' }
+];
+const HORA_INICIO = 6, HORA_FIN = 22; // rango visible del calendario
+let franjasSeleccionadas = {}; // { diaIdx: {inicio, fin} }
+
+function construirCalendario() {
+    const tabla = document.getElementById('cal-tabla');
+    tabla.innerHTML = '';
+    tabla.appendChild(document.createElement('div')); // esquina vacía
+    DIAS_SEMANA.forEach(d => { const h = document.createElement('div'); h.className = 'cal-header'; h.innerText = d.nombre; tabla.appendChild(h); });
+
+    for (let h = HORA_INICIO; h < HORA_FIN; h++) {
+        const lbl = document.createElement('div'); lbl.className = 'cal-hora-label'; lbl.innerText = h + ':00'; tabla.appendChild(lbl);
+        DIAS_SEMANA.forEach(d => {
+            const celda = document.createElement('div');
+            celda.className = 'cal-celda';
+            celda.dataset.dia = d.idx;
+            celda.dataset.hora = h;
+            celda.addEventListener('mousedown', () => iniciarSeleccionCal(d.idx, h));
+            celda.addEventListener('mouseenter', () => arrastrarSeleccionCal(d.idx, h));
+            tabla.appendChild(celda);
+        });
+    }
+    document.addEventListener('mouseup', finalizarSeleccionCal);
+}
+construirCalendario();
+
+let calArrastrando = false, calDiaActivo = null, calHoraInicioDrag = null;
+function iniciarSeleccionCal(dia, hora) { calArrastrando = true; calDiaActivo = dia; calHoraInicioDrag = hora; pintarPreviewCal(dia, hora, hora); }
+function arrastrarSeleccionCal(dia, hora) { if (calArrastrando && dia === calDiaActivo) pintarPreviewCal(dia, calHoraInicioDrag, hora); }
+function finalizarSeleccionCal() {
+    if (!calArrastrando) return;
+    calArrastrando = false;
+    const celdasSel = document.querySelectorAll(`.cal-celda[data-dia="${calDiaActivo}"].sel`);
+    if (celdasSel.length === 0) { delete franjasSeleccionadas[calDiaActivo]; }
+    else {
+        const horas = Array.from(celdasSel).map(c => parseInt(c.dataset.hora));
+        const min = Math.min(...horas), max = Math.max(...horas);
+        franjasSeleccionadas[calDiaActivo] = { inicio: String(min).padStart(2, '0') + ':00', fin: String(max + 1).padStart(2, '0') + ':00' };
+    }
+    actualizarResumenCal();
+}
+function pintarPreviewCal(dia, hIni, hFin) {
+    const min = Math.min(hIni, hFin), max = Math.max(hIni, hFin);
+    document.querySelectorAll(`.cal-celda[data-dia="${dia}"]`).forEach(c => {
+        const h = parseInt(c.dataset.hora);
+        c.classList.toggle('sel', h >= min && h <= max);
+    });
+}
+function actualizarResumenCal() {
+    const partes = DIAS_SEMANA.filter(d => franjasSeleccionadas[d.idx]).map(d => `${d.nombre} ${franjasSeleccionadas[d.idx].inicio}–${franjasSeleccionadas[d.idx].fin}`);
+    document.getElementById('cal-resumen').innerText = partes.length ? partes.join(' · ') : 'Sin restricción de horario (se muestra siempre).';
+}
+document.getElementById('btnCalLimpiar').onclick = () => { franjasSeleccionadas = {}; document.querySelectorAll('.cal-celda').forEach(c => c.classList.remove('sel')); actualizarResumenCal(); };
+document.getElementById('btnCalTodoElDia').onclick = () => {
+    [1, 2, 3, 4, 5].forEach(dia => { franjasSeleccionadas[dia] = { inicio: HORA_INICIO + ':00', fin: HORA_FIN + ':00' }; });
+    document.querySelectorAll('.cal-celda').forEach(c => { if ([1,2,3,4,5].includes(parseInt(c.dataset.dia))) c.classList.add('sel'); });
+    actualizarResumenCal();
+};
+
+/* ================= CONTENIDO (publicación) ================= */
+const btnSubir = document.getElementById('btnSubir');
+
+document.getElementById('tipo').onchange = function() {
+    document.getElementById('contenido').placeholder = (this.value === 'video-yt')
+        ? "Pega el link de YT aquí (ej: https://www.youtube.com/watch?v=...)"
+        : "Escribe el mensaje o pega el link aquí...";
+};
+
+function resetFormulario() {
+    document.getElementById('contenido').value = "";
+    document.getElementById('fecha-inicio').value = "";
+    document.getElementById('fecha-fin').value = "";
+    franjasSeleccionadas = {};
+    document.querySelectorAll('.cal-celda').forEach(c => c.classList.remove('sel'));
+    actualizarResumenCal();
+    btnSubir.innerText = "🚀 PUBLICAR AHORA";
+    btnSubir.classList.remove('modo-edit');
+}
+
+btnSubir.onclick = function() {
+    const sedes = Array.from(document.querySelectorAll('.sede-check:checked')).map(cb => cb.value);
+    if (sedes.length === 0) return alert("Selecciona al menos una sede/pantalla.");
+
+    const tipo = document.getElementById('tipo').value;
+    let cont = document.getElementById('contenido').value;
+    if (tipo === 'video-yt' && cont.includes('/shorts/')) cont = cont.replace('/shorts/', '/watch?v=');
+
+    const fechaInicioVal = document.getElementById('fecha-inicio').value || null;
+    const fechaFinVal = document.getElementById('fecha-fin').value || null;
+    const franjas = Object.keys(franjasSeleccionadas).length ? franjasSeleccionadas : null;
+
+    sedes.forEach(sede => {
+        const refSede = db.ref('organizaciones/' + orgId + '/sedes/' + sede);
+        refSede.once('value').then(snap => {
+            let data = snap.val() || {};
+            if (!data.texto) data.texto = [];
+            if (!data.fotos) data.fotos = [];
+            if (!data.eventos) data.eventos = [];
+
+            const base = { fechaInicio: fechaInicioVal, fechaFin: fechaFinVal, franjas };
+
+            if (tipo === 'texto') data.texto.push(Object.assign({ msg: cont }, base));
+            else if (tipo === 'foto') data.fotos.push(Object.assign({ url: cont, formato: 'normal' }, base));
+            else if (tipo === 'foto-completa') data.fotos.push(Object.assign({ url: cont, formato: 'completa' }, base));
+            else if (tipo === 'video-yt') data.fotos.push(Object.assign({ url: cont, formato: 'video' }, base));
+            else if (tipo === 'zocalo') data.zocalo = Object.assign({ msg: cont }, base);
+            else if (tipo === 'evento') data.eventos.push(Object.assign({ msg: cont }, base));
+
+            return refSede.set(data);
+        });
+    });
+
+    resetFormulario();
+    alert("¡Publicado con éxito!");
+};
+
+function cargarHistorial() {
+    const sede = document.getElementById('ver-historial-sede').value;
+    if (!sede) { document.getElementById('historial').innerHTML = 'Creá una sede primero.'; return; }
+    db.ref('organizaciones/' + orgId + '/sedes/' + sede).on('value', snap => {
+        const h = document.getElementById('historial');
+        const data = snap.val();
+        h.innerHTML = "";
+        if (!data) { h.innerHTML = "Sede vacía."; return; }
+
+        (data.texto || []).forEach((t, i) => h.innerHTML += itemHTML(`📝 ${(t.msg||'').substring(0,25)}...`, 'texto', i));
+        (data.fotos || []).forEach((f, i) => {
+            const icono = f.formato === 'video' ? '🎬' : '🖼️';
+            const nombre = f.formato === 'video' ? 'Video YouTube' : (f.formato === 'completa' ? 'Foto Completa' : 'Foto Normal');
+            h.innerHTML += itemHTML(`${icono} ${nombre} ${i+1}`, 'fotos', i);
+        });
+        (data.eventos || []).forEach((e, i) => h.innerHTML += itemHTML(`⚠️ BLOQUEO: ${(e.msg||'').substring(0,15)}...`, 'eventos', i));
+        if (data.zocalo && data.zocalo.msg) h.innerHTML += itemHTML(`🎞️ Zócalo: ${data.zocalo.msg.substring(0,20)}...`, 'zocalo', 0);
+    });
+}
+
+function itemHTML(t, cat, i) {
+    return `<div class="historial-item"><span>${t}</span><div class="acciones">
+        <button class="btn-editar" onclick="editar('${cat}', ${i})">✏️ Editar</button>
+        <button class="btn-borrar" onclick="borrar('${cat}', ${i})">Eliminar</button>
+    </div></div>`;
+}
+
+window.editar = function(cat, i) {
+    const sede = document.getElementById('ver-historial-sede').value;
+    db.ref('organizaciones/' + orgId + '/sedes/' + sede).once('value').then(snap => {
+        const data = snap.val();
+        const item = (cat === 'zocalo') ? data.zocalo : data[cat][i];
+
+        document.getElementById('contenido').value = (cat === 'fotos') ? item.url : item.msg;
+        const sel = document.getElementById('tipo');
+        if (cat === 'texto') sel.value = 'texto';
+        else if (cat === 'zocalo') sel.value = 'zocalo';
+        else if (cat === 'fotos') sel.value = item.formato === 'video' ? 'video-yt' : (item.formato === 'completa' ? 'foto-completa' : 'foto');
+        else if (cat === 'eventos') sel.value = 'evento';
+
+        document.getElementById('fecha-inicio').value = item.fechaInicio || "";
+        document.getElementById('fecha-fin').value = item.fechaFin || "";
+        franjasSeleccionadas = item.franjas ? JSON.parse(JSON.stringify(item.franjas)) : {};
+        document.querySelectorAll('.cal-celda').forEach(c => {
+            const f = franjasSeleccionadas[c.dataset.dia];
+            c.classList.toggle('sel', !!(f && parseInt(c.dataset.hora) >= parseInt(f.inicio) && parseInt(c.dataset.hora) < parseInt(f.fin)));
+        });
+        actualizarResumenCal();
+
+        document.querySelectorAll('.sede-check').forEach(cb => cb.checked = (cb.value === sede));
+        btnSubir.innerText = "💾 GUARDAR CAMBIOS";
+        btnSubir.classList.add('modo-edit');
+        borrar(cat, i);
+        document.querySelector('[data-tab="tab-contenido"]').click();
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+};
+
+window.borrar = function(cat, i) {
+    const sede = document.getElementById('ver-historial-sede').value;
+    const ref = db.ref('organizaciones/' + orgId + '/sedes/' + sede);
+    ref.once('value').then(snap => {
+        let data = snap.val();
+        if (!data) return;
+        if (cat === 'zocalo') data.zocalo = "";
+        else if (data[cat]) data[cat].splice(i, 1);
+        ref.set(data);
+    });
+};
+
+document.getElementById('ver-historial-sede').addEventListener('change', cargarHistorial);
+
+/* ================= DISEÑO + PIZARRA: motor compartido ================= */
+const CONFIG_DEFAULT = {
+    diseño: {
+        colorFondo: "#2e314f", colorHeaderFondo: "#000000", colorFooterFondo: "#5d1a1a",
+        colorTexto: "#ffffff", colorAcento: "#d4af37", colorMensaje: "#f5d76e", colorZocaloTexto: "#ffffff",
+        fuente: "Inter", tamMensaje: 4.5, tamReloj: 4, tamZocalo: 2.5, tamFecha: 1.4, radio: 20, velocidadZocalo: 25,
+        logoUrl: "logo.png.png", logoUrl2: "",
+        mostrar: { logo: true, fechaGreg: true, fechaHeb: true, reloj: true, mensajes: true, fotos: true, zocalo: true }
+    },
+    layout: {
+        cols: 12, rows: 12,
+        blocks: [
+            { id: "logo", tipo: "logo", col: 1, row: 1, colSpan: 3, rowSpan: 2 },
+            { id: "fecha", tipo: "fecha", col: 4, row: 1, colSpan: 6, rowSpan: 2 },
+            { id: "reloj", tipo: "reloj", col: 10, row: 1, colSpan: 3, rowSpan: 2 },
+            { id: "mensajes", tipo: "mensajes", col: 1, row: 3, colSpan: 5, rowSpan: 9 },
+            { id: "fotos", tipo: "fotos", col: 6, row: 3, colSpan: 7, rowSpan: 9 },
+            { id: "zocalo", tipo: "zocalo", col: 1, row: 12, colSpan: 12, rowSpan: 1 }
+        ]
+    }
+};
+const NOMBRES = { logo: "LOGO", fecha: "FECHA", reloj: "RELOJ", mensajes: "MENSAJES", fotos: "FOTOS / VIDEO", zocalo: "ZÓCALO" };
+
+let configEnEdicion = null;
+let bloqueSeleccionado = null;
+let sedeConfigActual = null;
+
+function fusionarConfig(guardado) {
+    const c = JSON.parse(JSON.stringify(CONFIG_DEFAULT));
+    if (guardado && guardado.diseño) Object.assign(c.diseño, guardado.diseño, { mostrar: Object.assign({}, c.diseño.mostrar, guardado.diseño.mostrar || {}) });
+    if (guardado && guardado.layout && guardado.layout.blocks && guardado.layout.blocks.length) {
+        c.layout.cols = guardado.layout.cols || c.layout.cols;
+        c.layout.rows = guardado.layout.rows || c.layout.rows;
+        c.layout.blocks = JSON.parse(JSON.stringify(guardado.layout.blocks));
+    }
+    return c;
+}
+
+function cargarConfigSede(sede) {
+    if (!sede) return;
+    sedeConfigActual = sede;
+    db.ref('organizaciones/' + orgId + '/sedes/' + sede + '/config').once('value').then(snap => {
+        configEnEdicion = fusionarConfig(snap.val());
+        bloqueSeleccionado = null;
+        pintarFormularioDiseño();
+        pintarPizarra();
+    });
+}
+
+document.getElementById('diseno-sede-activa').addEventListener('change', function() { cargarConfigSede(this.value); });
+document.getElementById('pizarra-sede-activa').addEventListener('change', function() { cargarConfigSede(this.value); });
+
+/* ---------- Formulario de Diseño ---------- */
+const camposColor = ['colorFondo', 'colorHeaderFondo', 'colorFooterFondo', 'colorTexto', 'colorAcento', 'colorMensaje', 'colorZocaloTexto'];
+const camposRango = ['tamMensaje', 'tamReloj', 'tamZocalo', 'tamFecha', 'radio', 'velocidadZocalo'];
+const camposMostrar = ['logo', 'fechaGreg', 'fechaHeb', 'reloj', 'mensajes', 'fotos', 'zocalo'];
+
+function pintarFormularioDiseño() {
+    if (!configEnEdicion) return;
+    const d = configEnEdicion.diseño;
+    document.getElementById('d-logoUrl').value = d.logoUrl || "";
+    document.getElementById('d-logoUrl2').value = d.logoUrl2 || "";
+    camposColor.forEach(c => document.getElementById('d-' + c).value = colorAHex(d[c]));
+    document.getElementById('d-fuente').value = d.fuente;
+    camposRango.forEach(c => { document.getElementById('d-' + c).value = d[c]; document.getElementById('v-' + c).innerText = d[c]; });
+    camposMostrar.forEach(c => document.getElementById('m-' + c).checked = !!d.mostrar[c]);
+    actualizarVistaPrevia();
+}
+
+function colorAHex(v) {
+    if (!v) return '#000000';
+    if (v.startsWith('#')) return v;
+    const m = v.match(/\d+/g);
+    if (!m) return '#000000';
+    return '#' + m.slice(0, 3).map(n => parseInt(n).toString(16).padStart(2, '0')).join('');
+}
+
+function leerFormularioDiseño() {
+    const d = configEnEdicion.diseño;
+    d.logoUrl = document.getElementById('d-logoUrl').value.trim();
+    d.logoUrl2 = document.getElementById('d-logoUrl2').value.trim();
+    camposColor.forEach(c => d[c] = document.getElementById('d-' + c).value);
+    d.fuente = document.getElementById('d-fuente').value;
+    camposRango.forEach(c => d[c] = parseFloat(document.getElementById('d-' + c).value));
+    camposMostrar.forEach(c => d.mostrar[c] = document.getElementById('m-' + c).checked);
+}
+
+document.querySelectorAll('#tab-diseno input, #tab-diseno select').forEach(el => {
+    el.addEventListener('input', () => { if (configEnEdicion) { leerFormularioDiseño(); actualizarVistaPrevia(); } });
+});
+
+function actualizarVistaPrevia() {
+    const d = configEnEdicion.diseño;
+    camposRango.forEach(c => document.getElementById('v-' + c).innerText = d[c]);
+    const vp = document.getElementById('vista-previa');
+    vp.style.background = d.colorFondo;
+    vp.style.color = d.colorTexto;
+    vp.style.fontFamily = `'${d.fuente}', sans-serif`;
+    document.getElementById('vp-fecha').style.color = d.colorAcento;
+    document.getElementById('vp-fecha').style.fontSize = d.tamFecha + 'rem';
+    document.getElementById('vp-mensaje').style.color = d.colorMensaje;
+    document.getElementById('vp-mensaje').style.fontSize = (d.tamMensaje * 0.4) + 'rem';
+    document.getElementById('vp-reloj').style.fontSize = (d.tamReloj * 0.5) + 'rem';
+    vp.style.borderRadius = d.radio + 'px';
+}
+
+document.getElementById('btnGuardarDiseño').onclick = function() {
+    leerFormularioDiseño();
+    db.ref('organizaciones/' + orgId + '/sedes/' + sedeConfigActual + '/config/diseño').set(configEnEdicion.diseño).then(() => alert('🎨 Diseño guardado.'));
+};
+
+/* ---------- Pizarra ---------- */
+const canvas = document.getElementById('pizarra-canvas');
+
+function pintarPizarra() {
+    if (!configEnEdicion) return;
+    document.getElementById('pz-cols').value = configEnEdicion.layout.cols;
+    document.getElementById('pz-rows').value = configEnEdicion.layout.rows;
+    document.getElementById('v-cols').innerText = configEnEdicion.layout.cols;
+    document.getElementById('v-rows').innerText = configEnEdicion.layout.rows;
+    renderCanvas();
+}
+
+function renderCanvas() {
+    canvas.innerHTML = '';
+    const cols = configEnEdicion.layout.cols, rows = configEnEdicion.layout.rows;
+    canvas.style.backgroundSize = `${100/cols}% ${100/rows}%`;
+
+    configEnEdicion.layout.blocks.forEach(b => {
+        const el = document.createElement('div');
+        el.className = 'pz-bloque pz-tipo-' + b.tipo + (bloqueSeleccionado === b.id ? ' seleccionado' : '');
+        el.innerText = NOMBRES[b.tipo] || b.tipo;
+        el.dataset.id = b.id;
+        posicionarPz(el, b, cols, rows);
+
+        const handle = document.createElement('div');
+        handle.className = 'pz-resize';
+        el.appendChild(handle);
+
+        el.addEventListener('mousedown', ev => iniciarArrastre(ev, b, el, false));
+        handle.addEventListener('mousedown', ev => { ev.stopPropagation(); iniciarArrastre(ev, b, el, true); });
+
+        canvas.appendChild(el);
+    });
+    actualizarBotonesPaleta();
+}
+
+function posicionarPz(el, b, cols, rows) {
+    el.style.left = (100 * (b.col - 1) / cols) + '%';
+    el.style.top = (100 * (b.row - 1) / rows) + '%';
+    el.style.width = (100 * b.colSpan / cols) + '%';
+    el.style.height = (100 * b.rowSpan / rows) + '%';
+}
+
+function iniciarArrastre(ev, bloque, el, esResize) {
+    ev.preventDefault();
+    bloqueSeleccionado = bloque.id;
+    document.querySelectorAll('.pz-bloque').forEach(x => x.classList.remove('seleccionado'));
+    el.classList.add('seleccionado');
+
+    const rectCanvas = canvas.getBoundingClientRect();
+    const cols = configEnEdicion.layout.cols, rows = configEnEdicion.layout.rows;
+    const cellW = rectCanvas.width / cols, cellH = rectCanvas.height / rows;
+    const startX = ev.clientX, startY = ev.clientY;
+    const orig = { col: bloque.col, row: bloque.row, colSpan: bloque.colSpan, rowSpan: bloque.rowSpan };
+
+    function onMove(e) {
+        const dCols = Math.round((e.clientX - startX) / cellW);
+        const dRows = Math.round((e.clientY - startY) / cellH);
+        if (esResize) {
+            bloque.colSpan = clamp(orig.colSpan + dCols, 1, cols - bloque.col + 1);
+            bloque.rowSpan = clamp(orig.rowSpan + dRows, 1, rows - bloque.row + 1);
+        } else {
+            bloque.col = clamp(orig.col + dCols, 1, cols - bloque.colSpan + 1);
+            bloque.row = clamp(orig.row + dRows, 1, rows - bloque.rowSpan + 1);
+        }
+        posicionarPz(el, bloque, cols, rows);
+    }
+    function onUp() { document.removeEventListener('mousemove', onMove); document.removeEventListener('mouseup', onUp); }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+}
+
+function clamp(v, min, max) { return Math.min(Math.max(v, min), max); }
+
+function actualizarBotonesPaleta() {
+    const tiposPresentes = configEnEdicion.layout.blocks.map(b => b.tipo);
+    document.querySelectorAll('.pizarra-toolbar [data-add]').forEach(btn => { btn.disabled = tiposPresentes.includes(btn.dataset.add); });
+}
+
+document.querySelectorAll('.pizarra-toolbar [data-add]').forEach(btn => {
+    btn.onclick = () => {
+        const tipo = btn.dataset.add;
+        if (configEnEdicion.layout.blocks.find(b => b.tipo === tipo)) return;
+        const cols = configEnEdicion.layout.cols, rows = configEnEdicion.layout.rows;
+        configEnEdicion.layout.blocks.push({ id: tipo, tipo, col: 1, row: 1, colSpan: Math.min(4, cols), rowSpan: Math.min(3, rows) });
+        bloqueSeleccionado = tipo;
+        renderCanvas();
+    };
+});
+
+document.getElementById('btnQuitarBloque').onclick = () => {
+    if (!bloqueSeleccionado) return alert('Seleccioná primero un bloque en la pizarra.');
+    configEnEdicion.layout.blocks = configEnEdicion.layout.blocks.filter(b => b.id !== bloqueSeleccionado);
+    bloqueSeleccionado = null;
+    renderCanvas();
+};
+
+document.getElementById('btnResetPizarra').onclick = () => {
+    if (!confirm('¿Restaurar el diseño clásico de pantalla dividida?')) return;
+    configEnEdicion.layout = JSON.parse(JSON.stringify(CONFIG_DEFAULT.layout));
+    pintarPizarra();
+};
+
+document.getElementById('pz-cols').addEventListener('input', function() { configEnEdicion.layout.cols = parseInt(this.value); document.getElementById('v-cols').innerText = this.value; ajustarBloquesALimites(); renderCanvas(); });
+document.getElementById('pz-rows').addEventListener('input', function() { configEnEdicion.layout.rows = parseInt(this.value); document.getElementById('v-rows').innerText = this.value; ajustarBloquesALimites(); renderCanvas(); });
+function ajustarBloquesALimites() {
+    const cols = configEnEdicion.layout.cols, rows = configEnEdicion.layout.rows;
+    configEnEdicion.layout.blocks.forEach(b => {
+        b.colSpan = clamp(b.colSpan, 1, cols);
+        b.rowSpan = clamp(b.rowSpan, 1, rows);
+        b.col = clamp(b.col, 1, cols - b.colSpan + 1);
+        b.row = clamp(b.row, 1, rows - b.rowSpan + 1);
+    });
+}
+
+document.getElementById('btnGuardarPizarra').onclick = function() {
+    db.ref('organizaciones/' + orgId + '/sedes/' + sedeConfigActual + '/config/layout').set(configEnEdicion.layout).then(() => alert('🧩 Pantalla guardada.'));
+};
+
+/* ================= ANALÍTICA ================= */
+document.getElementById('an-sede').addEventListener('change', cargarAnalitica);
+document.getElementById('an-dias').addEventListener('change', cargarAnalitica);
+
+function cargarAnalitica() {
+    const sede = document.getElementById('an-sede').value;
+    const dias = parseInt(document.getElementById('an-dias').value);
+    const cont = document.getElementById('an-contenido');
+    if (!sede) { cont.innerHTML = '<div class="an-vacio">Creá una sede primero.</div>'; return; }
+    cont.innerHTML = '<div class="an-vacio">Cargando...</div>';
+
+    db.ref('organizaciones/' + orgId + '/analytics').once('value').then(snap => {
+        const data = snap.val() || {};
+        const fechas = Object.keys(data).sort().reverse().slice(0, dias);
+        if (fechas.length === 0) { cont.innerHTML = '<div class="an-vacio">Todavía no hay datos. Van a aparecer a medida que la pantalla muestre contenido.</div>'; return; }
+
+        let maxVal = 1;
+        const filas = fechas.map(f => {
+            const d = (data[f] && data[f][sede]) || {};
+            const mensajes = d.mensajes || 0, fotos = d.fotos || 0;
+            maxVal = Math.max(maxVal, mensajes, fotos);
+            return { fecha: f, mensajes, fotos };
+        });
+
+        cont.innerHTML = filas.map(f => `
+            <div style="margin-bottom:14px;">
+                <div style="font-size:0.85rem; font-weight:bold; color:#555; margin-bottom:4px;">${f.fecha}</div>
+                <div class="an-barra-fila">
+                    <div class="an-barra-label">📝 Mensajes</div>
+                    <div class="an-barra-track"><div class="an-barra-fill" style="width:${(f.mensajes/maxVal*100)}%">${f.mensajes}</div></div>
+                </div>
+                <div class="an-barra-fila">
+                    <div class="an-barra-label">🖼️ Fotos/Video</div>
+                    <div class="an-barra-track"><div class="an-barra-fill" style="width:${(f.fotos/maxVal*100)}%">${f.fotos}</div></div>
+                </div>
+            </div>
+        `).join('');
+    });
+}
+</script>
+</body>
+</html>
