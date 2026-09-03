@@ -188,7 +188,7 @@
             <option value="texto">📝 Mensaje Central (Rotativo)</option>
             <option value="foto">🖼️ Foto (Formato Normal)</option>
             <option value="foto-completa">📺 Foto (Pantalla Completa)</option>
-            <option value="video-yt">🎬 Video de YouTube</option>
+            <option value="video-yt">🎬 Video (YouTube o Vimeo)</option>
             <option value="zocalo">🎞️ Noticia Zócalo (Abajo)</option>
             <option value="evento">⚠️ MENSAJE IMPORTANTE (Bloqueo)</option>
         </select>
@@ -624,7 +624,7 @@ const btnSubir = document.getElementById('btnSubir');
 
 document.getElementById('tipo').onchange = function() {
     document.getElementById('contenido').placeholder = (this.value === 'video-yt')
-        ? "Pega el link de YT aquí (ej: https://www.youtube.com/watch?v=...)"
+        ? "Pega el link de YouTube o Vimeo aquí (ej: https://www.youtube.com/watch?v=... o https://vimeo.com/123456789)"
         : "Escribe el mensaje o pega el link aquí...";
     destinoSeleccionado = [];
     actualizarDestinoBloques();
@@ -1091,7 +1091,7 @@ document.getElementById('btnPzAgregarFotos').onclick = () => {
         if (!data.fotos) data.fotos = [];
         partes.forEach(url => {
             if (url.includes('/shorts/')) url = url.replace('/shorts/', '/watch?v=');
-            const esVideo = url.includes('youtube.com') || url.includes('youtu.be');
+            const esVideo = url.includes('youtube.com') || url.includes('youtu.be') || url.includes('vimeo.com');
             data.fotos.push({ url, formato: esVideo ? 'video' : 'normal', destino: [bloque.id] });
         });
         return ref.set(data);
