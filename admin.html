@@ -105,6 +105,9 @@
     .pizarra-nota { background: #fdf2d5; border: 1px solid var(--dorado); padding: 10px 14px; border-radius: 8px; font-size: 0.85rem; margin-bottom: 12px; }
     #pz-estilo-bloque { background: #f3eafc; border: 2px solid #8e44ad; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
     #pz-estilo-bloque label { color: #6c2f8f; }
+    #pz-carga-mensajes, #pz-carga-fotos { background: #eaf5ee; border: 2px solid #27ae60; padding: 15px; border-radius: 10px; margin-bottom: 15px; }
+    #pz-carga-mensajes label, #pz-carga-fotos label { color: #1e8449; }
+    #btnPzAgregarMensajes, #btnPzAgregarFotos { background: #27ae60; color: white; border: none; font-weight: bold; cursor: pointer; }
 
     /* ---- Analítica ---- */
     .an-selector { display: flex; gap: 10px; margin-bottom: 15px; }
@@ -274,6 +277,9 @@
             <div><label>Tamaño de la fecha <span class="rango-valor" id="v-tamFecha"></span></label><input type="range" id="d-tamFecha" min="0.8" max="2.5" step="0.1"></div>
             <div><label>Redondeo de bordes <span class="rango-valor" id="v-radio"></span></label><input type="range" id="d-radio" min="0" max="50" step="1"></div>
         </div>
+        <div class="grid-2">
+            <div><label>Espacio entre bloques <span class="rango-valor" id="v-gapBloques"></span></label><input type="range" id="d-gapBloques" min="0" max="20" step="1"></div>
+        </div>
 
         <label>👁️ QUÉ MOSTRAR EN PANTALLA</label>
         <div class="toggle-row"><input type="checkbox" id="m-logo"><label for="m-logo">Logo</label></div>
@@ -329,6 +335,20 @@
                 <div id="pz-color-texto-wrap"><label>Color de texto</label><input type="color" id="pz-color-texto"></div>
             </div>
             <button type="button" id="btnQuitarEstiloBloque" style="background:#eee;">↺ Usar los colores generales de "Diseño" (quitar personalización)</button>
+        </div>
+
+        <div id="pz-carga-mensajes" style="display:none;">
+            <label>📝 Carga rápida de mensajes para este bloque</label>
+            <div class="cal-nota">Separá varios mensajes con " / " (barra CON espacio a cada lado). Ej: Feliz cumpleaños Sara / Recordá traer el buzo mañana</div>
+            <textarea id="pz-msj-textarea" rows="2" placeholder="Mensaje uno / Mensaje dos / Mensaje tres"></textarea>
+            <button type="button" id="btnPzAgregarMensajes">➕ Agregar a este bloque</button>
+        </div>
+
+        <div id="pz-carga-fotos" style="display:none;">
+            <label>🖼️ Carga rápida de fotos/video para este bloque</label>
+            <div class="cal-nota">Separá varios enlaces con " / " (barra CON espacio a cada lado, para no romper la URL). Detecta los links de YouTube como video, el resto los toma como foto.</div>
+            <textarea id="pz-fotos-textarea" rows="2" placeholder="https://.../foto1.jpg / https://youtube.com/watch?v=xxxx / https://.../foto2.jpg"></textarea>
+            <button type="button" id="btnPzAgregarFotos">➕ Agregar a este bloque</button>
         </div>
 
         <div class="grid-2">
@@ -794,7 +814,7 @@ const CONFIG_DEFAULT = {
     diseño: {
         colorFondo: "#2e314f", colorHeaderFondo: "#000000", colorFooterFondo: "#5d1a1a",
         colorTexto: "#ffffff", colorAcento: "#d4af37", colorMensaje: "#f5d76e", colorZocaloTexto: "#ffffff",
-        fuente: "Inter", tamMensaje: 4.5, tamReloj: 4, tamZocalo: 2.5, tamFecha: 1.4, radio: 20, velocidadZocalo: 25,
+        fuente: "Inter", tamMensaje: 4.5, tamReloj: 4, tamZocalo: 2.5, tamFecha: 1.4, radio: 20, gapBloques: 8, velocidadZocalo: 25,
         logoUrl: "logo.png.png", logoUrl2: "",
         mostrar: { logo: true, fechaGreg: true, fechaHeb: true, reloj: true, mensajes: true, fotos: true, zocalo: true }
     },
@@ -843,7 +863,7 @@ document.getElementById('pizarra-sede-activa').addEventListener('change', functi
 
 /* ---------- Formulario de Diseño ---------- */
 const camposColor = ['colorFondo', 'colorHeaderFondo', 'colorFooterFondo', 'colorTexto', 'colorAcento', 'colorMensaje', 'colorZocaloTexto'];
-const camposRango = ['tamMensaje', 'tamReloj', 'tamZocalo', 'tamFecha', 'radio', 'velocidadZocalo'];
+const camposRango = ['tamMensaje', 'tamReloj', 'tamZocalo', 'tamFecha', 'radio', 'gapBloques', 'velocidadZocalo'];
 const camposMostrar = ['logo', 'fechaGreg', 'fechaHeb', 'reloj', 'mensajes', 'fotos', 'zocalo'];
 
 function pintarFormularioDiseño() {
@@ -1005,8 +1025,10 @@ function colorTextoPorDefecto(tipo) {
 
 function actualizarPanelEstiloBloque() {
     const panel = document.getElementById('pz-estilo-bloque');
+    const panelMsj = document.getElementById('pz-carga-mensajes');
+    const panelFotos = document.getElementById('pz-carga-fotos');
     const bloque = configEnEdicion.layout.blocks.find(b => b.id === bloqueSeleccionado);
-    if (!bloque) { panel.style.display = 'none'; return; }
+    if (!bloque) { panel.style.display = 'none'; panelMsj.style.display = 'none'; panelFotos.style.display = 'none'; return; }
 
     panel.style.display = 'block';
     document.getElementById('pz-estilo-nombre').innerText = bloque.nombre || NOMBRES[bloque.tipo] || bloque.tipo;
@@ -1015,6 +1037,9 @@ function actualizarPanelEstiloBloque() {
     const soportaTexto = TIPOS_CON_TEXTO.includes(bloque.tipo);
     document.getElementById('pz-color-texto-wrap').style.display = soportaTexto ? 'block' : 'none';
     if (soportaTexto) document.getElementById('pz-color-texto').value = bloque.colorTexto || colorTextoPorDefecto(bloque.tipo);
+
+    panelMsj.style.display = (bloque.tipo === 'mensajes') ? 'block' : 'none';
+    panelFotos.style.display = (bloque.tipo === 'fotos') ? 'block' : 'none';
 }
 
 document.getElementById('pz-color-fondo').addEventListener('input', function() {
@@ -1031,6 +1056,49 @@ document.getElementById('btnQuitarEstiloBloque').onclick = () => {
     delete bloque.colorFondo;
     delete bloque.colorTexto;
     renderCanvas();
+};
+
+/* ---------- Carga rápida de contenido desde la Pizarra (separado por "/") ---------- */
+document.getElementById('btnPzAgregarMensajes').onclick = () => {
+    const bloque = configEnEdicion.layout.blocks.find(b => b.id === bloqueSeleccionado);
+    if (!bloque) return;
+    const textarea = document.getElementById('pz-msj-textarea');
+    const partes = textarea.value.split(/\s+\/\s+/).map(p => p.trim()).filter(p => p.length);
+    if (!partes.length) return alert('Escribí al menos un mensaje.');
+
+    const ref = db.ref('organizaciones/' + orgId + '/sedes/' + sedeConfigActual);
+    ref.once('value').then(snap => {
+        let data = snap.val() || {};
+        if (!data.texto) data.texto = [];
+        partes.forEach(msg => data.texto.push({ msg, destino: [bloque.id] }));
+        return ref.set(data);
+    }).then(() => {
+        textarea.value = '';
+        alert(`✅ Se agregaron ${partes.length} mensaje(s) a "${bloque.nombre || NOMBRES[bloque.tipo]}".`);
+    });
+};
+
+document.getElementById('btnPzAgregarFotos').onclick = () => {
+    const bloque = configEnEdicion.layout.blocks.find(b => b.id === bloqueSeleccionado);
+    if (!bloque) return;
+    const textarea = document.getElementById('pz-fotos-textarea');
+    const partes = textarea.value.split(/\s+\/\s+/).map(p => p.trim()).filter(p => p.length);
+    if (!partes.length) return alert('Pegá al menos un enlace.');
+
+    const ref = db.ref('organizaciones/' + orgId + '/sedes/' + sedeConfigActual);
+    ref.once('value').then(snap => {
+        let data = snap.val() || {};
+        if (!data.fotos) data.fotos = [];
+        partes.forEach(url => {
+            if (url.includes('/shorts/')) url = url.replace('/shorts/', '/watch?v=');
+            const esVideo = url.includes('youtube.com') || url.includes('youtu.be');
+            data.fotos.push({ url, formato: esVideo ? 'video' : 'normal', destino: [bloque.id] });
+        });
+        return ref.set(data);
+    }).then(() => {
+        textarea.value = '';
+        alert(`✅ Se agregaron ${partes.length} elemento(s) a "${bloque.nombre || NOMBRES[bloque.tipo]}".`);
+    });
 };
 
 function idUnico(tipo) { return tipo + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
