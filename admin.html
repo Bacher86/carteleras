@@ -559,7 +559,7 @@ const DIAS_SEMANA = [
     { idx: 1, nombre: 'Lun' }, { idx: 2, nombre: 'Mar' }, { idx: 3, nombre: 'Mié' },
     { idx: 4, nombre: 'Jue' }, { idx: 5, nombre: 'Vie' }, { idx: 6, nombre: 'Sáb' }, { idx: 0, nombre: 'Dom' }
 ];
-const HORA_INICIO = 6, HORA_FIN = 22; // rango visible del calendario
+const HORA_INICIO = 0, HORA_FIN = 24; // rango visible del calendario: día completo
 let franjasSeleccionadas = {}; // { diaIdx: {inicio, fin} }
 
 function construirCalendario() {
@@ -569,7 +569,7 @@ function construirCalendario() {
     DIAS_SEMANA.forEach(d => { const h = document.createElement('div'); h.className = 'cal-header'; h.innerText = d.nombre; tabla.appendChild(h); });
 
     for (let h = HORA_INICIO; h < HORA_FIN; h++) {
-        const lbl = document.createElement('div'); lbl.className = 'cal-hora-label'; lbl.innerText = h + ':00'; tabla.appendChild(lbl);
+        const lbl = document.createElement('div'); lbl.className = 'cal-hora-label'; lbl.innerText = String(h).padStart(2, '0') + ':00'; tabla.appendChild(lbl);
         DIAS_SEMANA.forEach(d => {
             const celda = document.createElement('div');
             celda.className = 'cal-celda';
