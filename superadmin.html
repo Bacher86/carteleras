@@ -28,6 +28,7 @@
     .fila-acciones { display: flex; gap: 6px; flex-wrap: wrap; }
     .fila-acciones button { width: auto; margin: 0; padding: 6px 10px; font-size: 0.78rem; cursor: pointer; }
     .btn-toggle { background: #eee; }
+    .btn-borrar-org { background: #c0392b; color: white; }
     .btn-pago { background: #fdf2d5; color: #b9770e; }
     .btn-link { background: #eaf2fb; color: #2980b9; text-decoration: none; text-align: center; display: inline-block; }
 
@@ -245,6 +246,7 @@ function pintarTablaOrgs() {
                 <button class="btn-pago" onclick="marcarPago('${id}')">💰 Pago recibido (+30d)</button>
                 <a class="btn-link" href="admin.html?org=${id}" target="_blank">🔧 Admin</a>
                 <a class="btn-link" href="index.html?org=${id}" target="_blank">📺 Ver</a>
+                <button class="btn-borrar-org" onclick="borrarOrgDefinitivo('${id}', '${(m.nombre || id).replace(/'/g, "\\'")}')">🗑️ Eliminar definitivamente</button>
             </td>
         </tr>`;
     });
@@ -254,6 +256,376 @@ document.getElementById('orden-orgs').addEventListener('change', pintarTablaOrgs
 
 window.toggleActivo = function(id, activoActual) {
     db.ref('organizaciones/' + id + '/meta/activo').set(!activoActual);
+};
+
+window.borrarOrgDefinitivo = function(id, nombre) {
+    const escrito = prompt(`⚠️ Esto borra TODO el contenido, diseño, sedes y configuración de "${nombre}" para siempre. No se puede deshacer.\n\nEscribí ELIMINAR (en mayúsculas) para confirmar:`);
+    if (escrito === null) return;
+    if (escrito !== 'ELIMINAR') { alert('No coincide con "ELIMINAR". Cancelado, no se borró nada.'); return; }
+    db.ref('organizaciones/' + id).remove().then(() => {
+        alert(`"${nombre}" fue eliminada definitivamente.`);
+    });
+};
+
+window.marcarPago = function(id) {
+    const nuevaFecha = new Date(); nuevaFecha.setDate(nuevaFecha.getDate() + 30);
+    const fechaStr = nuevaFecha.toISOString().split('T')[0];
+    db.ref('organizaciones/' + id + '/meta').update({ activo: true, fechaVencimiento: fechaStr });
+    alert('Pago registrado. Vence: ' + fechaStr);
+};
+
+/* ================= SOLICITUDES ================= */
+function cargarSolicitudes() {
+    db.ref('solicitudes').orderByChild('estado').equalTo('pendiente').on('value', snap => {
+        const data = snap.val() || {};
+        const ids = Object.keys(data);
+        const badge = document.getElementById('contador-solicitudes');
+        if (ids.length) { badge.style.display = 'inline-block'; badge.innerText = ids.length; } else { badge.style.display = 'none'; }
+
+        const cont = document.getElementById('lista-solicitudes');
+        if (!ids.length) { cont.innerHTML = '<p style="color:#999;">No hay solicitudes pendientes.</p>'; return; }
+
+        cont.innerHTML = ids.map(id => {
+            const s = data[id];
+            return `<div class="solicitud-card">
+                <div><b>${s.nombre}</b><br>${s.email} · ${s.telefono || 'sin teléfono'}<br><span style="font-size:0.85rem;">${s.mensaje || ''}</span></div>
+                <div class="fila-acciones">
+                    <button class="btn-toggle" onclick="precargarDesdeSolicitud('${id}')">✅ Usar para crear</button>
+                    <button class="btn-toggle" onclick="descartarSolicitud('${id}')">✖️ Descartar</button>
+                </div>
+            </div>`;
+        }).join('');
+    });
+}
+
+window.precargarDesdeSolicitud = function(id) {
+    db.ref('solicitudes/' + id).once('value').then(snap => {
+        const s = snap.val();
+        document.getElementById('new-nombre').value = s.nombre;
+        document.getElementById('new-nombre').dispatchEvent(new Event('input'));
+        document.getElementById('new-email').value = s.email;
+        document.querySelector('[data-tab="tab-nueva"]').click();
+        window._solicitudOrigen = id;
+    });
+};
+window.descartarSolicitud = function(id) { db.ref('solicitudes/' + id + '/estado').set('descartada'); };
+
+/* ================= CREAR NUEVA INSTITUCIÓN ================= */
+document.getElementById('btnCrearOrg').onclick = function() {
+    const nombre = document.getElementById('new-nombre').value.trim();
+    const orgIdNueva = document.getElementById('new-id').value.trim();
+    const email = document.getElementById('new-email').value.trim();
+    const pass = document.getElementById('new-pass').value;
+    const plan = document.getElementById('new-plan').value;
+    const pagoLink = document.getElementById('new-pagolink').value.trim();
+    const msg = document.getElementById('crear-org-msg');
+
+    if (!nombre || !orgIdNueva || !email || pass.length < 6) {
+        msg.style.color = '#c0392b';
+        msg.innerText = 'Completá nombre, identificador, email y una contraseña de al menos 6 caracteres.';
+        return;
+    }
+
+    db.ref('organizaciones/' + orgIdNueva + '/meta').once('value').then(snap => {
+        if (snap.exists()) { msg.style.color = '#c0392b'; msg.innerText = 'Ya existe una institución con ese identificador.'; return; }
+
+        const hoy = new Date();
+        const vencimiento = new Date(); vencimiento.setDate(vencimiento.getDate() + 30);
+
+        // App secundaria para crear el usuario sin cerrar la sesión del super admin
+        const appSecundaria = firebase.apps.find(a => a.name === 'Secundaria') || firebase.initializeApp(firebaseConfig, 'Secundaria');
+        appSecundaria.auth().createUserWithEmailAndPassword(email, pass).then(cred => {
+            const uid = cred.user.uid;
+            const updates = {};
+            updates['usuarios/' + uid] = { orgId: orgIdNueva, email };
+            updates['organizaciones/' + orgIdNueva + '/meta'] = {
+                nombre, email, activo: true, plan, pagoLink,
+                fechaAlta: hoy.toISOString().split('T')[0],
+                fechaVencimiento: vencimiento.toISOString().split('T')[0],
+                sedes: [{ id: 'principal', nombre: 'Principal' }]
+            };
+            return db.ref().update(updates).then(() => appSecundaria.auth().signOut());
+        }).then(() => {
+            if (window._solicitudOrigen) { db.ref('solicitudes/' + window._solicitudOrigen + '/estado').set('aprobada'); window._solicitudOrigen = null; }
+            msg.style.color = '#178a5b';
+            msg.innerText = `Listo. Panel: admin.html?org=${orgIdNueva} — Pantalla: index.html?org=${orgIdNueva}`;
+            document.getElementById('new-nombre').value = '';
+            document.getElementById('new-id').value = '';
+            document.getElementById('new-email').value = '';
+            document.getElementById('new-pass').value = '';
+            document.getElementById('new-pagolink').value = '';
+        }).catch(err => { msg.style.color = '#c0392b'; msg.innerText = 'Error: ' + err.message; });
+    });
+};
+</script>
+</body>
+</html><!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Super Admin — Cartelera Digital</title>
+<style>
+    :root { --azul: #1a1c2c; --dorado: #d4af37; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Segoe UI', sans-serif; margin: 0; padding: 20px; background: #eef2f3; color: #333; }
+    .panel { background: white; padding: 30px; border-radius: 15px; max-width: 1100px; margin: auto; box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+    h2 { color: var(--azul); border-bottom: 3px solid var(--dorado); padding-bottom: 10px; margin-top: 0; }
+    label { font-weight: bold; display: block; margin-top: 12px; margin-bottom: 5px; color: var(--azul); }
+    input, select, button { width: 100%; padding: 12px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 8px; font-size: 1rem; box-sizing: border-box; }
+
+    #vista-login { max-width: 380px; margin: 60px auto; text-align: center; }
+    #vista-login button { background: var(--azul); color: white; border: none; font-weight: bold; cursor: pointer; }
+
+    .grid-form { display: grid; grid-template-columns: 1fr 1fr; gap: 0 15px; }
+    #btnCrearOrg { background: #27ae60; color: white; border: none; font-weight: bold; padding: 15px; cursor: pointer; }
+
+    table { width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 0.9rem; }
+    th, td { text-align: left; padding: 10px; border-bottom: 1px solid #eee; }
+    th { color: var(--azul); }
+    .estado-pill { padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: bold; }
+    .estado-activo { background: #d4f8e8; color: #178a5b; }
+    .estado-inactivo { background: #fde3e3; color: #c0392b; }
+    .fila-acciones { display: flex; gap: 6px; flex-wrap: wrap; }
+    .fila-acciones button { width: auto; margin: 0; padding: 6px 10px; font-size: 0.78rem; cursor: pointer; }
+    .btn-toggle { background: #eee; }
+    .btn-borrar-org { background: #c0392b; color: white; }
+    .btn-pago { background: #fdf2d5; color: #b9770e; }
+    .btn-link { background: #eaf2fb; color: #2980b9; text-decoration: none; text-align: center; display: inline-block; }
+
+    .solicitud-card { background: #fdf2d5; border: 1px solid var(--dorado); border-radius: 10px; padding: 15px; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+    .badge-contador { background: #c0392b; color: white; border-radius: 20px; padding: 2px 9px; font-size: 0.75rem; margin-left: 6px; }
+    .tabs { display: flex; gap: 8px; margin-bottom: 20px; }
+    .tab-btn { flex: 1; width: auto; background: #f0f4f8; color: var(--azul); border: 2px solid transparent; font-weight: bold; cursor: pointer; margin: 0; }
+    .tab-btn.activo { background: var(--azul); color: white; border-color: var(--dorado); }
+    .tab-contenido { display: none; }
+    .tab-contenido.activo { display: block; }
+    .resumen-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 22px; }
+    .resumen-card { background: #f7f9fb; border-radius: 12px; padding: 16px; text-align: center; }
+    .resumen-card .num { font-size: 1.8rem; font-weight: bold; color: var(--azul); }
+    .resumen-card .lbl { font-size: 0.8rem; color: #777; margin-top: 4px; }
+    .resumen-card.alerta .num { color: #c0392b; }
+    .sort-row { display: flex; justify-content: flex-end; margin-bottom: 8px; }
+    .sort-row select { width: auto; }
+    .actividad-ok { color: #178a5b; font-size: 0.78rem; }
+    .actividad-alerta { color: #c0392b; font-size: 0.78rem; }
+    .venc-cerca { color: #c0392b; font-weight: bold; }
+</style>
+</head>
+<body>
+
+<div id="vista-login">
+    <h2>🔑 Super Admin</h2>
+    <input type="email" id="sa-email" placeholder="Email">
+    <input type="password" id="sa-pass" placeholder="Contraseña">
+    <button id="btnSaLogin">Ingresar</button>
+    <div id="sa-login-error" style="color:#c0392b; font-size:0.9rem;"></div>
+</div>
+
+<div class="panel" id="vista-panel" style="display:none;">
+    <h2>🏢 Super Admin — Instituciones <button id="btnSaLogout" style="width:auto; float:right; background:#eee; padding:8px 14px; font-size:0.85rem; cursor:pointer;">Cerrar sesión</button></h2>
+    <p style="color:#888; font-size:0.85rem; margin-top:-8px;">Este panel es solo de supervisión: acá ves el estado de cada cuenta, pero no editás el contenido de ninguna cartelera. Para eso, cada institución tiene su propio panel con su propio login.</p>
+
+    <div class="resumen-grid" id="resumen-grid"></div>
+
+    <div class="tabs">
+        <button class="tab-btn activo" data-tab="tab-solicitudes">📥 Solicitudes <span class="badge-contador" id="contador-solicitudes" style="display:none;">0</span></button>
+        <button class="tab-btn" data-tab="tab-organizaciones">🏫 Instituciones</button>
+        <button class="tab-btn" data-tab="tab-nueva">➕ Nueva institución</button>
+    </div>
+
+    <!-- SOLICITUDES -->
+    <div class="tab-contenido activo" id="tab-solicitudes">
+        <div id="lista-solicitudes"><p>Cargando...</p></div>
+    </div>
+
+    <!-- LISTADO -->
+    <div class="tab-contenido" id="tab-organizaciones">
+        <div class="sort-row">
+            <select id="orden-orgs">
+                <option value="vencimiento">Ordenar por: vencimiento más próximo</option>
+                <option value="nombre">Ordenar por: nombre</option>
+                <option value="alta">Ordenar por: fecha de alta (más nuevas primero)</option>
+            </select>
+        </div>
+        <table>
+            <thead><tr><th>Institución</th><th>Plan</th><th>Alta</th><th>Vence</th><th>Actividad</th><th>Estado</th><th>Acciones</th></tr></thead>
+            <tbody id="tabla-orgs"><tr><td colspan="7">Cargando...</td></tr></tbody>
+        </table>
+    </div>
+
+    <!-- NUEVA -->
+    <div class="tab-contenido" id="tab-nueva">
+        <label>Nombre de la institución</label>
+        <input type="text" id="new-nombre" placeholder="Ej: Colegio San Martín">
+        <label>Identificador (se usa en la URL: ?org=identificador) — se autogenera</label>
+        <input type="text" id="new-id">
+        <div class="grid-form">
+            <div><label>Email de contacto (login del admin)</label><input type="email" id="new-email"></div>
+            <div><label>Contraseña inicial</label><input type="text" id="new-pass" placeholder="Se la pasás vos a la escuela"></div>
+        </div>
+        <div class="grid-form">
+            <div>
+                <label>Plan</label>
+                <select id="new-plan">
+                    <option value="basico">Básico</option>
+                    <option value="pro">Pro</option>
+                    <option value="premium">Premium</option>
+                </select>
+            </div>
+            <div><label>Link de pago (opcional, Mercado Pago / Stripe)</label><input type="text" id="new-pagolink" placeholder="https://..."></div>
+        </div>
+        <button id="btnCrearOrg">✅ Crear institución y usuario admin</button>
+        <p id="crear-org-msg" style="font-size:0.85rem; color:#555;"></p>
+    </div>
+</div>
+
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.1/firebase-database.js"></script>
+
+<script>
+const firebaseConfig = {
+    apiKey: "AIzaSyAzBO8TzuGeAV-_nsGDgIWckWhV_vkOhTY",
+    authDomain: "cartelera-nube.firebaseapp.com",
+    databaseURL: "https://cartelera-nube-default-rtdb.firebaseio.com",
+    projectId: "cartelera-nube",
+    storageBucket: "cartelera-nube.firebasestorage.app",
+    messagingSenderId: "333887658907",
+    appId: "1:333887658907:web:c9d3904ad02a8fd9fe1f3e"
+};
+const appSA = firebase.initializeApp(firebaseConfig, 'SuperAdminApp');
+const db = appSA.database();
+const auth = appSA.auth();
+
+document.getElementById('btnSaLogin').onclick = () => {
+    auth.signInWithEmailAndPassword(document.getElementById('sa-email').value.trim(), document.getElementById('sa-pass').value)
+        .catch(() => document.getElementById('sa-login-error').innerText = 'Email o contraseña incorrectos.');
+};
+document.getElementById('btnSaLogout').onclick = () => auth.signOut();
+
+auth.onAuthStateChanged(user => {
+    if (!user) { document.getElementById('vista-login').style.display = 'block'; document.getElementById('vista-panel').style.display = 'none'; return; }
+    db.ref('superadmins/' + user.uid).once('value').then(snap => {
+        if (!snap.val()) { document.getElementById('sa-login-error').innerText = 'Esta cuenta no tiene permisos de Super Admin.'; auth.signOut(); return; }
+        document.getElementById('vista-login').style.display = 'none';
+        document.getElementById('vista-panel').style.display = 'block';
+        cargarOrganizaciones();
+        cargarSolicitudes();
+    });
+});
+
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.onclick = () => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('activo'));
+        document.querySelectorAll('.tab-contenido').forEach(t => t.classList.remove('activo'));
+        btn.classList.add('activo');
+        document.getElementById(btn.dataset.tab).classList.add('activo');
+    };
+});
+
+document.getElementById('new-nombre').addEventListener('input', function() {
+    document.getElementById('new-id').value = this.value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+});
+
+/* ================= LISTADO DE ORGANIZACIONES ================= */
+let ultimoSnapshotOrgs = {};
+
+function diasHasta(fechaStr) {
+    if (!fechaStr) return null;
+    return Math.ceil((new Date(fechaStr) - new Date()) / 86400000);
+}
+
+function ultimaActividad(orgData) {
+    const analytics = orgData.analytics || {};
+    const fechas = Object.keys(analytics).sort();
+    if (!fechas.length) return null;
+    return fechas[fechas.length - 1];
+}
+
+function cargarOrganizaciones() {
+    db.ref('organizaciones').on('value', snap => {
+        ultimoSnapshotOrgs = snap.val() || {};
+        pintarResumen();
+        pintarTablaOrgs();
+    });
+}
+
+function pintarResumen() {
+    const ids = Object.keys(ultimoSnapshotOrgs);
+    let activas = 0, porVencer = 0;
+    ids.forEach(id => {
+        const m = ultimoSnapshotOrgs[id].meta || {};
+        if (m.activo !== false) activas++;
+        const d = diasHasta(m.fechaVencimiento);
+        if (d !== null && d <= 7) porVencer++;
+    });
+    db.ref('solicitudes').orderByChild('estado').equalTo('pendiente').once('value').then(sSnap => {
+        const pendientes = Object.keys(sSnap.val() || {}).length;
+        document.getElementById('resumen-grid').innerHTML = `
+            <div class="resumen-card"><div class="num">${ids.length}</div><div class="lbl">Instituciones totales</div></div>
+            <div class="resumen-card"><div class="num">${activas}</div><div class="lbl">Activas</div></div>
+            <div class="resumen-card ${porVencer ? 'alerta' : ''}"><div class="num">${porVencer}</div><div class="lbl">Vencen en ≤7 días</div></div>
+            <div class="resumen-card ${pendientes ? 'alerta' : ''}"><div class="num">${pendientes}</div><div class="lbl">Solicitudes pendientes</div></div>
+        `;
+    });
+}
+
+function pintarTablaOrgs() {
+    const orden = document.getElementById('orden-orgs').value;
+    let ids = Object.keys(ultimoSnapshotOrgs);
+
+    ids.sort((a, b) => {
+        const ma = ultimoSnapshotOrgs[a].meta || {}, mb = ultimoSnapshotOrgs[b].meta || {};
+        if (orden === 'nombre') return (ma.nombre || a).localeCompare(mb.nombre || b);
+        if (orden === 'alta') return (mb.fechaAlta || '').localeCompare(ma.fechaAlta || '');
+        // vencimiento más próximo primero (sin vencimiento al final)
+        const da = ma.fechaVencimiento || '9999-99-99', db_ = mb.fechaVencimiento || '9999-99-99';
+        return da.localeCompare(db_);
+    });
+
+    const filas = ids.map(id => {
+        const orgData = ultimoSnapshotOrgs[id];
+        const m = orgData.meta || {};
+        const activo = m.activo !== false;
+        const dias = diasHasta(m.fechaVencimiento);
+        const vencClase = (dias !== null && dias <= 7) ? 'venc-cerca' : '';
+        const ultAct = ultimaActividad(orgData);
+        const actividadHtml = ultAct
+            ? `<span class="${(diasHasta(ultAct) !== null && diasHasta(ultAct) >= -3) ? 'actividad-ok' : 'actividad-alerta'}">Última: ${ultAct}</span>`
+            : `<span class="actividad-alerta">Sin actividad registrada</span>`;
+
+        return `<tr>
+            <td><b>${m.nombre || id}</b><br><span style="color:#999; font-size:0.78rem;">?org=${id}</span></td>
+            <td>${m.plan || '—'}</td>
+            <td>${m.fechaAlta || '—'}</td>
+            <td class="${vencClase}">${m.fechaVencimiento || '—'}${dias !== null ? ` (${dias >= 0 ? dias + 'd' : 'vencido'})` : ''}</td>
+            <td>${actividadHtml}</td>
+            <td><span class="estado-pill ${activo ? 'estado-activo' : 'estado-inactivo'}">${activo ? 'Activo' : 'Suspendido'}</span></td>
+            <td class="fila-acciones">
+                <button class="btn-toggle" onclick="toggleActivo('${id}', ${activo})">${activo ? '⏸️ Suspender' : '▶️ Reactivar'}</button>
+                <button class="btn-pago" onclick="marcarPago('${id}')">💰 Pago recibido (+30d)</button>
+                <a class="btn-link" href="admin.html?org=${id}" target="_blank">🔧 Admin</a>
+                <a class="btn-link" href="index.html?org=${id}" target="_blank">📺 Ver</a>
+                <button class="btn-borrar-org" onclick="borrarOrgDefinitivo('${id}', '${(m.nombre || id).replace(/'/g, "\\'")}')">🗑️ Eliminar definitivamente</button>
+            </td>
+        </tr>`;
+    });
+    document.getElementById('tabla-orgs').innerHTML = filas.join('') || '<tr><td colspan="7">Todavía no hay instituciones.</td></tr>';
+}
+document.getElementById('orden-orgs').addEventListener('change', pintarTablaOrgs);
+
+window.toggleActivo = function(id, activoActual) {
+    db.ref('organizaciones/' + id + '/meta/activo').set(!activoActual);
+};
+
+window.borrarOrgDefinitivo = function(id, nombre) {
+    const escrito = prompt(`⚠️ Esto borra TODO el contenido, diseño, sedes y configuración de "${nombre}" para siempre. No se puede deshacer.\n\nEscribí ELIMINAR (en mayúsculas) para confirmar:`);
+    if (escrito === null) return;
+    if (escrito !== 'ELIMINAR') { alert('No coincide con "ELIMINAR". Cancelado, no se borró nada.'); return; }
+    db.ref('organizaciones/' + id).remove().then(() => {
+        alert(`"${nombre}" fue eliminada definitivamente.`);
+    });
 };
 
 window.marcarPago = function(id) {
