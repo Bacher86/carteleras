@@ -36,7 +36,7 @@ const CONFIG_DEFAULT = {
     diseño: {
         colorFondo: "#2e314f", colorHeaderFondo: "rgba(0,0,0,0.5)", colorFooterFondo: "#5d1a1a",
         colorTexto: "#ffffff", colorAcento: "#d4af37", colorMensaje: "#f5d76e", colorZocaloTexto: "#ffffff",
-        fuente: "Inter", tamMensaje: 4.5, tamReloj: 4, tamZocalo: 2.5, tamFecha: 1.4, radio: 20, velocidadZocalo: 25,
+        fuente: "Inter", tamMensaje: 4.5, tamReloj: 4, tamZocalo: 2.5, tamFecha: 1.4, radio: 20, gapBloques: 8, velocidadZocalo: 25,
         logoUrl: "logo.png.png", logoUrl2: "",
         mostrar: { logo: true, fechaGreg: true, fechaHeb: true, reloj: true, mensajes: true, fotos: true, zocalo: true }
     },
@@ -196,6 +196,7 @@ function aplicarDiseño(d) {
     r.setProperty('--tam-zocalo', d.tamZocalo + 'rem');
     r.setProperty('--tam-fecha', d.tamFecha + 'rem');
     r.setProperty('--radio', d.radio + 'px');
+    r.setProperty('--gap-bloques', d.gapBloques + 'px');
     r.setProperty('--vel-zocalo', d.velocidadZocalo + 's');
 }
 
