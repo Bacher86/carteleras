@@ -348,6 +348,13 @@ function rotarMensajesBloque(blockId) {
 }
 
 // ---------- FOTOS / VIDEOS: rotación totalmente independiente por bloque ----------
+function esUrlYoutube(url) { return url && (url.includes('youtube.com') || url.includes('youtu.be')); }
+function esUrlVimeo(url) { return url && url.includes('vimeo.com'); }
+function extraerIdVimeo(url) {
+    const m = url.match(/vimeo\.com\/(?:.*\/)?(\d+)/);
+    return m ? m[1] : null;
+}
+
 function rotarFotoBloque(blockId) {
     const wrapper = document.querySelector(`.bloque-fotos[data-block-id="${blockId}"]`);
     if (!wrapper) return;
@@ -362,9 +369,13 @@ function rotarFotoBloque(blockId) {
     const playerDiv = wrapper.querySelector('.rl-player-yt');
     if (!img || !ytContainer) return;
 
-    const esVideo = item.formato === 'video' || (item.url && (item.url.includes('youtube.com') || item.url.includes('youtu.be')));
+    const esYoutube = esUrlYoutube(item.url);
+    const esVimeo = esUrlVimeo(item.url);
+    const esVideo = item.formato === 'video' || esYoutube || esVimeo;
 
-    if (esVideo) {
+    if (esVideo && esVimeo) {
+        reproducirVimeoBloque(blockId, wrapper, item.url);
+    } else if (esVideo) {
         if (!youtubeReady) { setTimeout(() => rotarFotoBloque(blockId), 1500); return; }
         clearInterval(e.intervalFoto); e.intervalFoto = null;
         let videoId = "";
@@ -373,6 +384,7 @@ function rotarFotoBloque(blockId) {
         else videoId = item.url.split('/').pop().split('?')[0];
 
         img.style.display = 'none'; ytContainer.style.display = 'block';
+        playerDiv.innerHTML = ''; // por si había quedado un iframe de Vimeo de una vuelta anterior
         if (!e.player) {
             e.player = new YT.Player(playerDiv, {
                 height: '100%', width: '100%', videoId,
@@ -396,6 +408,34 @@ function rotarFotoBloque(blockId) {
         if (!e.intervalFoto) reiniciarIntervaloFoto(blockId);
     }
     registrarImpresion('fotos');
+}
+
+// Vimeo se muestra con un iframe simple (no hace falta su SDK completo).
+// La duración se pide a su API pública (oEmbed) para saber cuándo pasar al siguiente.
+function reproducirVimeoBloque(blockId, wrapper, url) {
+    const e = estadoDe(blockId);
+    const img = wrapper.querySelector('.rl-foto-principal');
+    const ytContainer = wrapper.querySelector('.rl-contenedor-youtube');
+    const playerDiv = wrapper.querySelector('.rl-player-yt');
+    const vimeoId = extraerIdVimeo(url);
+    if (!vimeoId) { rotarFotoBloque(blockId); return; }
+
+    clearInterval(e.intervalFoto); e.intervalFoto = null;
+    if (e.player && e.player.destroy) { try { e.player.destroy(); } catch (err) {} }
+    e.player = null;
+
+    img.style.display = 'none'; ytContainer.style.display = 'block';
+    playerDiv.innerHTML = '';
+    const iframe = document.createElement('iframe');
+    iframe.src = `https://player.vimeo.com/video/${vimeoId}?autoplay=1&muted=1&background=1&loop=0`;
+    iframe.width = '100%'; iframe.height = '100%'; iframe.style.border = '0';
+    iframe.setAttribute('allow', 'autoplay; fullscreen');
+    playerDiv.appendChild(iframe);
+
+    fetch('https://vimeo.com/api/oembed.json?url=' + encodeURIComponent('https://vimeo.com/' + vimeoId))
+        .then(r => r.json())
+        .then(data => programarSeguroBloque(blockId, data.duration || 15))
+        .catch(() => programarSeguroBloque(blockId, 15));
 }
 
 function programarSeguroBloque(blockId, dur) {
