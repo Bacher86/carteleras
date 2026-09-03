@@ -19,6 +19,7 @@
     --tam-zocalo: 2.5rem;
     --tam-fecha: 1.4rem;
     --radio: 20px;
+    --gap-bloques: 8px;
     --vel-zocalo: 25s;
 }
 
@@ -36,8 +37,8 @@ html, body {
     display: grid;
     width: 100vw;
     height: 100vh;
-    gap: 8px;
-    padding: 8px;
+    gap: var(--gap-bloques, 8px);
+    padding: var(--gap-bloques, 8px);
 }
 
 .bloque {
@@ -143,4 +144,3 @@ html, body {
 #pantalla-vacia code { background: rgba(255,255,255,0.08); padding: 4px 10px; border-radius: 6px; }
 #pantalla-vacia.suspendida { background: #3a1616; }
 #pantalla-vacia .icono { font-size: 4rem; }
-
